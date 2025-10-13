@@ -3,7 +3,7 @@
 
 services:
   postiz:
-    image: stellarbyte:latest
+    image: ghcr.io/harrison-ming/stellarbyte:latest
     container_name: stellarbyte-app
     restart: unless-stopped
     env_file:
