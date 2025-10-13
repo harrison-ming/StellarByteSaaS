@@ -206,15 +206,19 @@ export function RegisterAfter({
             'By registering you agree to our'
           )}&nbsp;
           <a
-            href={`https://postiz.com/terms`}
+            href={`https://stellarbyte.ca/terms/`}
             className="underline hover:font-bold"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             {t('terms_of_service', 'Terms of Service')}
           </a>&nbsp;
           {t('and', 'and')}&nbsp;
           <a
-            href={`https://postiz.com/privacy`}
+            href={`https://stellarbyte.ca/privacy/`}
             className="underline hover:font-bold"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             {t('privacy_policy', 'Privacy Policy')}
           </a>&nbsp;
@@ -234,6 +238,11 @@ export function RegisterAfter({
             <Link href="/auth/login" className="underline  cursor-pointer">
               {t('sign_in', 'Sign In')}
             </Link>
+          </p>
+          <p className="mt-2 text-sm text-center">
+            <a href="https://stellarbyte.ca" className="underline cursor-pointer">
+              ← 返回首页
+            </a>
           </p>
         </div>
       </form>

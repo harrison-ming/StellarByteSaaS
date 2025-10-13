@@ -100,8 +100,8 @@ module.exports = {
         13: 'repeat(13, minmax(0, 1fr));',
       },
       backgroundImage: {
-        loginBox: 'url(/auth/login-box.png)',
-        loginBg: 'url(/auth/bg-login.png)',
+        loginBox: 'linear-gradient(135deg, rgba(1, 212, 8, 0.1) 0%, rgba(0, 176, 7, 0.05) 100%)',
+        loginBg: 'radial-gradient(ellipse at top left, rgba(1, 212, 8, 0.15) 0%, rgba(0, 0, 0, 0.95) 50%, rgba(0, 0, 0, 1) 100%)',
       },
       fontFamily: {
         sans: ['Helvetica Neue'],

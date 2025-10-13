@@ -1,0 +1,70 @@
+# StellarByte - Production Deployment Configuration
+# Usage: docker compose up -d
+
+services:
+  postiz:
+    image: stellarbyte:latest
+    container_name: stellarbyte-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # Frontend port (external 4100 -> internal 4200)
+      - "127.0.0.1:4100:4200"
+      # Backend API port (external 4000 -> internal 3000)
+      - "127.0.0.1:4000:3000"
+      # WebSocket port (external 5100 -> internal 5000)
+      - "127.0.0.1:5100:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - stellarbyte-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: stellarbyte-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stellarbyte
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: stellarbyte
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      # Production: Use Docker named volume for persistence
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - stellarbyte-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stellarbyte"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: stellarbyte-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      # Production: Use Docker named volume for persistence
+      - redis_data:/data
+    networks:
+      - stellarbyte-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  stellarbyte-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: stellarbyte_postgres_data
+  redis_data:
+    name: stellarbyte_redis_data

@@ -58,3 +58,25 @@ Thumbs.db
 .secrets/
 libraries/plugins/src/plugins.ts
 i18n.cache
+
+# ===== StellarByte Production =====
+# Environment variables
+.env.production
+.env.*.local
+
+# Data and uploads
+data/
+uploads/
+*.log
+
+# Deployment
+docker-compose.override.yml
+
+# pnpm
+.pnpm-store/
+.pnpm-debug.log
+pnpm-debug.log*
+
+# Prisma
+prisma/migrations/**/*.sql
+!prisma/migrations/**/migration.sql
