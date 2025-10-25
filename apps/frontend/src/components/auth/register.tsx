@@ -241,7 +241,7 @@ export function RegisterAfter({
           </p>
           <p className="mt-2 text-sm text-center">
             <a href="https://stellarbyte.ca" className="underline cursor-pointer">
-              ← 返回首页
+              {t('back_to_home', '← Back to Home')}
             </a>
           </p>
         </div>
