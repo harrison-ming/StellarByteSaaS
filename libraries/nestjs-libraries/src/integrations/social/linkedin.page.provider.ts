@@ -21,14 +21,17 @@ export class LinkedinPageProvider
   override isBetweenSteps = true;
   override refreshWait = true;
   override maxConcurrentJob = 2; // LinkedIn Page has professional posting limits
+  // NOTE: Temporarily commented out scopes that are not approved by LinkedIn
+  // LinkedIn only approved 'w_member_social' for now
+  // Uncomment below when additional scopes are approved (especially for organization features)
   override scopes = [
     'openid',
     'profile',
     'w_member_social',
-    'r_basicprofile',
-    'rw_organization_admin',
-    'w_organization_social',
-    'r_organization_social',
+    // 'r_basicprofile',           // Deprecated - no longer needed
+    // 'rw_organization_admin',    // Requires additional product approval (Marketing Developer Platform)
+    // 'w_organization_social',    // Requires additional product approval (Marketing Developer Platform)
+    // 'r_organization_social',    // Requires additional product approval (Marketing Developer Platform)
   ];
 
   override editor = 'normal' as const;
@@ -104,7 +107,8 @@ export class LinkedinPageProvider
   override async generateAuthUrl() {
     const state = makeId(6);
     const codeVerifier = makeId(30);
-    const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&prompt=none&client_id=${
+    // NOTE: Removed &prompt=none as it may cause OAuth errors with LinkedIn
+    const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
       process.env.LINKEDIN_CLIENT_ID
     }&redirect_uri=${encodeURIComponent(
       `${process.env.FRONTEND_URL}/integrations/social/linkedin-page`

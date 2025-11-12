@@ -21,14 +21,17 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
   oneTimeToken = true;
 
   isBetweenSteps = false;
+  // NOTE: Temporarily commented out scopes that are not approved by LinkedIn
+  // LinkedIn only approved 'w_member_social' for now
+  // Uncomment below when additional scopes are approved
   scopes = [
     'openid',
     'profile',
     'w_member_social',
-    'r_basicprofile',
-    'rw_organization_admin',
-    'w_organization_social',
-    'r_organization_social',
+    // 'r_basicprofile',           // Deprecated - no longer needed
+    // 'rw_organization_admin',    // Requires additional product approval
+    // 'w_organization_social',    // Requires additional product approval
+    // 'r_organization_social',    // Requires additional product approval
   ];
   override maxConcurrentJob = 2; // LinkedIn has professional posting limits
   refreshWait = true;
@@ -88,9 +91,10 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
   async generateAuthUrl() {
     const state = makeId(6);
     const codeVerifier = makeId(30);
+    // NOTE: Removed &prompt=none as it may cause OAuth errors with LinkedIn
     const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
       process.env.LINKEDIN_CLIENT_ID
-    }&prompt=none&redirect_uri=${encodeURIComponent(
+    }&redirect_uri=${encodeURIComponent(
       `${process.env.FRONTEND_URL}/integrations/social/linkedin`
     )}&state=${state}&scope=${encodeURIComponent(this.scopes.join(' '))}`;
     return {
