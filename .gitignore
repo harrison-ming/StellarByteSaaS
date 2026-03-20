@@ -80,3 +80,11 @@ pnpm-debug.log*
 # Prisma
 prisma/migrations/**/*.sql
 !prisma/migrations/**/migration.sql
+
+# Secrets
+credentials.md
+SECRETS.md
+*.env
+.env.*
+*cookies*.json
+*token*.json

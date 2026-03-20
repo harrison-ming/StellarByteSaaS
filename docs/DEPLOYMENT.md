@@ -38,7 +38,7 @@ Complete guide for deploying StellarByte to production.
 ### Step 1: Clone Repository on 107
 
 ```bash
-ssh ming@192.168.1.107
+ssh ming@192.168.1.94
 cd /Users/ming/Documents/host/
 git clone https://github.com/harrison-ming/StellarByteSaaS.git StellarByte
 cd StellarByte
@@ -160,10 +160,10 @@ On your local machine:
 ssh-keygen -t ed25519 -C "github-actions@stellarbyte" -f ~/.ssh/github_actions_stellarbyte
 
 # Copy public key to 107
-ssh-copy-id -i ~/.ssh/github_actions_stellarbyte.pub ming@192.168.1.107
+ssh-copy-id -i ~/.ssh/github_actions_stellarbyte.pub ming@192.168.1.94
 
 # Test connection
-ssh -i ~/.ssh/github_actions_stellarbyte ming@192.168.1.107 "echo 'Connection successful'"
+ssh -i ~/.ssh/github_actions_stellarbyte ming@192.168.1.94 "echo 'Connection successful'"
 ```
 
 ### Step 2: Add GitHub Secrets
@@ -174,7 +174,7 @@ Add these secrets:
 
 1. **SSH_HOST**
    ```
-   192.168.1.107
+   192.168.1.94
    ```
 
 2. **SSH_USER**
@@ -214,7 +214,7 @@ https://github.com/harrison-ming/StellarByteSaaS/actions
 ### Full Deployment
 
 ```bash
-ssh ming@192.168.1.107
+ssh ming@192.168.1.94
 cd /Users/ming/Documents/host/StellarByte
 bash deploy-to-107.sh
 ```
@@ -276,7 +276,7 @@ cp /Users/ming/Documents/host/StellarByte/.env \
 
 ```bash
 # On local machine
-scp ming@192.168.1.107:~/backups/stellarbyte_*.sql.gz ~/local_backups/
+scp ming@192.168.1.94:~/backups/stellarbyte_*.sql.gz ~/local_backups/
 ```
 
 ### Restore from Backup
@@ -395,7 +395,7 @@ https://github.com/harrison-ming/StellarByteSaaS/actions
 
 **Test SSH connection manually**:
 ```bash
-ssh -i ~/.ssh/github_actions_stellarbyte ming@192.168.1.107
+ssh -i ~/.ssh/github_actions_stellarbyte ming@192.168.1.94
 ```
 
 ### Issue: Cloudflare Tunnel Not Working
