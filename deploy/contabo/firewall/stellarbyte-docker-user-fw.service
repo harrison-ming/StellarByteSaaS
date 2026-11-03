@@ -1,0 +1,17 @@
+# Install to /etc/systemd/system/, then: systemctl daemon-reload && systemctl enable --now stellarbyte-docker-user-fw.service
+# PartOf + After docker.service: re-applied whenever Docker (re)starts, including boot.
+# No ExecStop on purpose: live-restore keeps containers running across a dockerd restart,
+# so the rule must never be removed implicitly (manual: stellarbyte-docker-user-fw.sh remove).
+[Unit]
+Description=StellarByte DOCKER-USER rule: drop outbound tcp/25 from 172.30.0.0/24
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/stellarbyte-docker-user-fw.sh apply
+
+[Install]
+WantedBy=docker.service multi-user.target

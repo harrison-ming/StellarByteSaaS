@@ -1,0 +1,45 @@
+# /etc/nginx/sites-available/stellarpostiz (+ symlink in sites-enabled). Spec 5.3.
+# Name sorts after "listmonk", so the host's default (fallback) server block is unchanged.
+# Cloudflare (proxied, SSL mode Full) -> this host :443 with the self-signed *.stellarbyte.ca
+# origin cert -> 127.0.0.1:4007 = nginx inside stellarbyte-app (:5000), which routes
+# /api -> backend :3000 and everything else -> frontend :4200.
+# Real client IP: nginx.conf already has set_real_ip_from <Cloudflare ranges>.
+
+map $http_upgrade $stellarbyte_connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name app.stellarbyte.ca;
+
+    ssl_certificate /etc/ssl/certs/origin.crt;
+    ssl_certificate_key /etc/ssl/private/origin.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Cloudflare free plan caps request bodies at 100 MB.
+    client_max_body_size 100m;
+
+    # HTTPS everywhere (spec 8.4) without touching zone settings: Cloudflare (SSL Full) always
+    # pulls over 443 and reports the visitor scheme in X-Forwarded-Proto.
+    if ($http_x_forwarded_proto = "http") {
+        return 301 https://$host$request_uri;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:4007;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Cloudflare always reaches the user over HTTPS; keep cookies "secure" even on :80 origin pulls.
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $stellarbyte_connection_upgrade;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_request_buffering off;
+    }
+}

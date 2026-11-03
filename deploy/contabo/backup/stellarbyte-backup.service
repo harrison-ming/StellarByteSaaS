@@ -1,6 +1,8 @@
 # Template, install to /etc/systemd/system/ (phase 3). Script -> /usr/local/sbin/stellarbyte-backup.sh
 # Reuses the host's existing Discord notifier /usr/local/sbin/notify-command-status.sh
 # (alerts on first failure and on recovery). R2 config: /root/.config/stellarbyte/r2-backup.env (600).
+# Pre-create the backup dir before the first start (ReadWritePaths needs it, else 226/NAMESPACE):
+#   install -d -m 0700 /opt/stellarpostiz/backups
 [Unit]
 Description=StellarByte Postgres local and R2 backup
 After=docker.service network-online.target
