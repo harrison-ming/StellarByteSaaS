@@ -3,55 +3,46 @@
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
 > 最后更新: 2026-11-03
 
-> **重新上线中 (2026-11-03 起)**: 按 [redeploy-spec.md](redeploy-spec.md) 执行, 下文架构与地址为退役前状态, 阶段 5 统一更新.
-
-> **已退役（2026-09-08）**：生产容器、Redis volume、运行镜像及服务器
-> `.env` 已删除；`app.stellarbyte.ca` 的 Cloudflare DNS 与专用 Nginx 路由
-> 已移除；Supabase `postiz` schema 已删除。本目录仅保留归档资料；GitHub
-> 生产部署工作流已禁用，Windmill 中专用 API secret 已删除。
-
 ## 概述
 
-StellarByte 是一个社交媒体管理平台, 基于开源项目 Postiz fork, 支持多平台内容定时发布.
+StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) 二次开发: 分支 `stellarbyte` = 上游 `v2.25.3` + StellarByte 品牌与少量补丁 (见 [redeploy-spec.md](redeploy-spec.md) 第 3 节). 2026-11-03 重新上线.
 
-- **访问地址**: https://app.stellarbyte.ca
-- **部署位置**: Contabo VPS (161.97.184.77)
-- **部署配置**: `/Users/ming/Documents/STELLAR CONFIG/machines/contabo/StellarPostiz/`
-
-## 目录内容
-
-- `accounts.md` — 所有已接入的社交媒体账号映射表 (integration_id, board_id 等)
+- **访问地址**: https://app.stellarbyte.ca (注册关闭, 仅管理员)
+- **部署位置**: Contabo VPS 161.97.184.77, `/opt/stellarpostiz/`
+- **运维 runbook**: [DEPLOYMENT.md](DEPLOYMENT.md) (部署 / 升级 / 回滚 / 备份恢复 / 排障)
+- **密钥**: `STELLAR CONFIG/StellarByteSaaS/` (`.env.production` 主源, `credentials.md` 索引, `accounts.md` 组织与账号映射)
 
 ## 架构速览
 
 ```
-Contabo VPS (161.97.184.77)
-├── stellarpostiz-app (Docker)
-│   ├── Frontend (Next.js): 4100
-│   └── Backend (NestJS): 4000
-└── stellarpostiz-redis (Redis): 6379
+Cloudflare (proxied, SSL Full) -> Contabo nginx -> 127.0.0.1:4007
+└── compose 项目 stellarbyte
+    ├── stellarbyte-app       ghcr.io/harrison-ming/stellarbyte-app:<tag> (frontend + backend + Temporal worker)
+    ├── stellarbyte-postgres  本机 Postgres 17 (库 stellarbyte / temporal / temporal_visibility)
+    ├── stellarbyte-redis     Redis 7
+    └── stellarbyte-temporal  Temporal 1.28 (SQL visibility)
 
-数据库: Supabase (apuferwshcgskvltfvnl), schema: postiz
-媒体存储: Cloudflare R2 → cdn.stellarbyte.ca
+媒体: R2 stellar-postiz -> https://media.stellarbyte.ca
+备份: 每日 pg_dump -> 本地 + R2 stellarbyte-backups
+发信: app-noreply@stellarbyte.ca (Stalwart, mx.stellarbyte.ca:587)
 ```
+
+不再使用 Supabase (旧 `postiz` schema 已于 2026-09-08 删除), 也不再用 `cdn.stellarbyte.ca`.
 
 ## Public API
 
-- **Base URL**: https://app.stellarbyte.ca/api/public/v1
-- **认证**: `Authorization: <org_api_key>` header
-- **限制**: 30 请求/小时
-- **Organization**: Company (faa1c842-d302-4606-9e06-76b30e69acf7)
-
-### 主要端点
+- **Base URL**: `https://app.stellarbyte.ca/api/public/v1`
+- **认证**: header `Authorization: <组织 API key>`; key 存 Windmill secret 变量 `u/harrisonvancouver/stellarbyte_api_key`
+- **组织 id**: 见 `STELLAR CONFIG/StellarByteSaaS/accounts.md`
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/integrations` | GET | 列出所有已连接账号 |
-| `/posts` | POST | 创建定时发布 |
-| `/posts` | GET | 查询发布记录 |
-| `/upload` | POST | 上传媒体文件 |
+| `/integrations` | GET | 列出已连接账号 |
+| `/posts` | POST | 创建发布 (返回 `[{postId, integration}]` 列表) |
+| `/posts?startDate=&endDate=` | GET | 查询发布记录 (返回 `{posts}`) |
+| `/upload` | POST | 上传媒体 |
 
-## 发布 Pinterest 内容 (示例)
+### 发布 Pinterest 内容 (示例)
 
 ```bash
 curl -X POST \
@@ -59,16 +50,18 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
     "type": "schedule",
-    "date": "2026-03-08T02:00:00.000Z",
+    "date": "2026-12-01T02:00:00.000Z",
+    "shortLink": false,
+    "tags": [],
     "posts": [{
       "integration": {"id": "<integration_id>"},
       "value": [{
-        "content": "Pin 描述文字",
-        "image": [{"id": "img-id", "path": "https://cdn.stellarbyte.ca/xxx.jpg"}]
+        "content": "Pin 描述文字 (<= 500 字符)",
+        "image": [{"id": "img-id", "path": "https://media.stellarbyte.ca/xxx.jpg"}]
       }],
       "settings": {
         "__type": "pinterest",
-        "board": "<board_id>",
+        "board": "<数字 board_id>",
         "title": "Pin 标题",
         "link": "https://shopmomodom.com"
       }
@@ -77,8 +70,14 @@ curl -X POST \
   https://app.stellarbyte.ca/api/public/v1/posts
 ```
 
+Pinterest 至少要一张图; `date` 必填.
+
+## 账号现状
+
+截至 2026-11-03 新组织 integration 数为 0, 旧 integration_id 全部作废; Pinterest (约 24 个) / LinkedIn 个人 / YouTube 待重新授权 (流程见 runbook 第 12.2 节). Windmill 相关发布 schedule 保持 disabled.
+
 ## 相关文档
 
-- 部署配置: `/STELLAR CONFIG/machines/contabo/StellarPostiz/README.md`
-- Pinterest 发布策略: `/STELLAR CONFIG/STELLARBYTE/pinterest-publisher/outbound-analysis.md`
-- Windmill 发布工作流: `/STELLAR CONFIG/Windmill/pinterest/`
+- 主机文档: `STELLAR INFRA/machines/contabo/StellarPostiz/README.md`, `STELLAR INFRA/machines/contabo/vps-161.97.184.77.md`
+- Pinterest 平台运营: `STELLAR INFRA/platforms/pinterest/`
+- Windmill 发布工作流: `STELLAR CONFIG/Windmill/pinterest/`

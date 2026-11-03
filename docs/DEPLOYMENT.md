@@ -1,529 +1,186 @@
-> **已过时**: 本文描述 107 Mac + Cloudflare Tunnel 时代的部署. 现行规范见 [redeploy-spec.md](redeploy-spec.md), 本文将在其阶段 5 改写为 Contabo runbook.
-
-# StellarByte Deployment Guide
-
-Complete guide for deploying StellarByte to production.
-
+---
+owner: Harrison
+review_by: 2027-02-01
+doc_type: runbook
+status: active
+supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见 git 历史 tag legacy/v2.7-fork)
 ---
 
-## Table of Contents
+# StellarByte 生产 runbook (Contabo)
 
-- [Prerequisites](#prerequisites)
-- [First-Time Setup](#first-time-setup)
-- [Cloudflare Tunnel Configuration](#cloudflare-tunnel-configuration)
-- [GitHub Actions Setup](#github-actions-setup)
-- [Manual Deployment](#manual-deployment)
-- [Backup & Restore](#backup--restore)
-- [Troubleshooting](#troubleshooting)
+> 线上: `https://app.stellarbyte.ca` (2026-11-03 重新上线). 设计决策与验收口径见 [redeploy-spec.md](redeploy-spec.md); 本文只写怎么运维. 与 spec 冲突时以 spec 为准并回改本文.
 
----
+## 1. 架构
 
-## Prerequisites
-
-### On 107 Server
-
-- ✅ Docker & Docker Compose installed
-- ✅ Git installed
-- ✅ SSH access configured
-- ✅ Cloudflared installed and configured
-- ✅ Sufficient disk space (>20GB recommended)
-
-### For CI/CD
-
-- ✅ GitHub repository access
-- ✅ SSH key pair for GitHub Actions
-
----
-
-## First-Time Setup
-
-### Step 1: Clone Repository on 107
-
-```bash
-ssh ming@192.168.1.94
-cd /Users/ming/Documents/host/
-git clone https://github.com/harrison-ming/StellarByteSaaS.git StellarByte
-cd StellarByte
+```
+用户 -> Cloudflare (proxied, SSL Full) -> Contabo 161.97.184.77 nginx :443 (自签名 origin 证书)
+     -> 127.0.0.1:4007 -> stellarbyte-app (容器内 nginx :5000: /api -> backend :3000, 其余 -> frontend :4200; orchestrator = Temporal worker)
+                           ├─ stellarbyte-postgres  (postgres:17-alpine; 库 stellarbyte / temporal / temporal_visibility)
+                           ├─ stellarbyte-redis     (redis:7-alpine, AOF)
+                           └─ stellarbyte-temporal  (temporalio/auto-setup:1.28.1, SQL visibility, 无 Elasticsearch / 无 UI)
+媒体: R2 桶 stellar-postiz -> https://media.stellarbyte.ca      备份: R2 私有桶 stellarbyte-backups
+发信: Stalwart app-noreply@stellarbyte.ca -> mx.stellarbyte.ca:587 STARTTLS (容器出站 25 被 DOCKER-USER 丢弃)
 ```
 
-### Step 2: Configure Environment
+- 代码: GitHub `harrison-ming/StellarByteSaaS` 分支 `stellarbyte` = 上游 Postiz `v2.25.3` + StellarByte 补丁 (spec 3 节). 远端 `main` 仍是旧 fork 历史 (tag `legacy/v2.7-fork`).
+- 镜像: `ghcr.io/harrison-ming/stellarbyte-app:<tag>` (公开包, 由 `.github/workflows/build-stellarbyte.yml` 在推 tag `stellarbyte-*` 时构建 amd64). Contabo 只 pull, **禁止在 Contabo 上构建**.
+- 同机还有 Stalwart (15 域名邮件) 与 Listmonk, 都是生产服务. 资源限额与网络隔离见 spec 5 节, 不得放宽.
+- 公开 API: `https://app.stellarbyte.ca/api/public/v1`, header `Authorization: <组织 API key>`. key 存 Windmill 变量 `u/harrisonvancouver/stellarbyte_api_key` (secret).
+
+## 2. 文件位置 (只列路径, 不含值)
+
+| 位置 | 内容 |
+|---|---|
+| 仓库 `deploy/contabo/` | `docker-compose.yml`, `docker-compose.local.yml` (本机试跑 override), `.env.example`, `postgres/init/10-databases.sh`, `temporal/dynamicconfig/`, `nginx/stellarpostiz`, `firewall/`, `backup/` (脚本 + systemd 单元模板) |
+| 服务器 `/opt/stellarpostiz/` | `docker-compose.yml`, `.env` (600), `postgres/init/`, `temporal/` (均从仓库复制), `backups/` (700), `decommission-20260908/` (旧 nginx 站点存档) |
+| 服务器 `/usr/local/sbin/` | `stellarbyte-backup.sh`, `stellarbyte-docker-user-fw.sh`, 共用 `notify-command-status.sh` (Discord 告警) |
+| 服务器 `/etc/systemd/system/` | `stellarbyte-backup.{service,timer}`, `stellarbyte-backup-watchdog.{service,timer}`, `stellarbyte-docker-user-fw.service` |
+| 服务器 `/etc/nginx/sites-available/stellarpostiz` | 站点 (symlink 到 sites-enabled) |
+| 服务器 `/root/.config/stellarbyte/r2-backup.env` (600) | 备份桶 R2 token |
+| 本机 `STELLAR CONFIG/StellarByteSaaS/.env.production` (600) | 生产 `.env` **主源**; 改动先改这里再同步到服务器 |
+| 本机 `STELLAR CONFIG/StellarByteSaaS/credentials.md` / `accounts.md` | 凭据索引 (无明文) / 组织与账号映射 |
+| Bitwarden | OAuth: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, Google/YouTube + 管理员登录 `cfc8d358-…` |
+
+## 3. 部署 / 更新镜像 tag
+
+tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复).
 
 ```bash
-# Copy template
-cp .env.example .env
+# 0. 本机: 打 tag 推送, 等 CI "Build StellarByte image" 成功
+git tag stellarbyte-v2.25.3-rN && git push origin stellarbyte-v2.25.3-rN
+gh run list -R harrison-ming/StellarByteSaaS -L 3
 
-# Edit with your actual values
-nano .env
+# 1. 服务器: 升级前手动备份一次 (回滚 Postgres 只能靠它)
+ssh root@161.97.184.77 'systemctl start stellarbyte-backup.service && systemctl status stellarbyte-backup.service --no-pager | grep Active'
+
+# 2. 改 tag: 本机主源 .env.production 与服务器 /opt/stellarpostiz/.env 两边同改 STELLARBYTE_TAG
+ssh root@161.97.184.77 'cd /opt/stellarpostiz && cp -p .env .env.pre-rN && sed -i "s/^STELLARBYTE_TAG=.*/STELLARBYTE_TAG=\"stellarbyte-v2.25.3-rN\"/" .env'
+
+# 3. 拉镜像 + 只重建 app (postgres/redis/temporal 不动)
+ssh root@161.97.184.77 'cd /opt/stellarpostiz && docker compose pull app && docker compose up -d --no-deps app'
+
+# 4. 验收: healthy (约 1-3 分钟), 登录页, worker
+ssh root@161.97.184.77 'docker ps --format "{{.Names}} {{.Status}}" | grep stellarbyte'
+curl -s -o /dev/null -w '%{http_code}\n' https://app.stellarbyte.ca/auth/login
 ```
 
-**Required values**:
-- `POSTGRES_PASSWORD` - Strong password for database
-- `JWT_SECRET` - Random 32+ character string
-- `CLOUDFLARE_*` - Your R2 storage credentials
-- `YOUTUBE_CLIENT_ID/SECRET` - Google OAuth credentials
+worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --task-queue main --address temporal:7233` 的 Pollers 应有 workflow 与 activity 两行; `docker logs stellarbyte-app 2>&1 | grep -i temporal | tail`. 再用管理员账号浏览器登录一次.
 
-### Step 3: Build Docker Image
+改 compose 或 `.env` 其他变量: 先改仓库 / 主源, 再 `scp` 到 `/opt/stellarpostiz/`, `docker compose up -d` (只重建有变化的服务).
+
+## 4. 上游跟进
+
+按 [redeploy-spec.md](redeploy-spec.md) 第 4 节 (fetch tag -> `sync/<tag>` 分支 cherry-pick L1/L1' -> `node scripts/brand/apply-brand.mjs --check` -> CI + 本机 compose 冒烟 -> 合入 `stellarbyte` 打 tag -> 本文第 3 节上线). 本机试跑: `deploy/contabo/docker-compose.local.yml` (子网 `STELLARBYTE_SUBNET=172.31.250.0/24`, 本机 172.30 已被占用).
+
+## 5. 回滚
+
+- **只回滚 app**: 把 `STELLARBYTE_TAG` 改回上一 tag (服务器上有 `.env.pre-rN` 可直接 `cp` 回去), `docker compose up -d --no-deps app`. 上一版镜像在服务器上保留一版, 不要在验收前 prune.
+- **数据库也要回滚** (上游 schema 变更): 停 app -> 用升级前的 dump 恢复 (第 6.3 节) -> 起旧 tag. `prisma db push` 每次启动都会跑, 不可逆的列删除只能靠 dump 恢复.
+
+## 6. 备份与恢复
+
+### 6.1 例行
+
+- `stellarbyte-backup.timer` 每天 03:45 UTC: 三个库 `pg_dump -Fc` -> 校验 -> sha256 + manifest -> `/opt/stellarpostiz/backups/` (保留 14 天) -> 上传 R2 `stellarbyte-backups/stellarbyte/` 并回读校验 (桶 lifecycle 35 天).
+- `stellarbyte-backup-watchdog.timer` 每小时 :50: 最新一组须 26h 内, 有效, 且 R2 存在; 失败经 `notify-command-status.sh` 发 Discord (首次失败 + 恢复各一条).
+- 媒体在 R2 `stellar-postiz`, 不在备份范围 (R2 自身持久化). Redis 只放队列/缓存, 不备份.
+
+### 6.2 命令
 
 ```bash
-docker build -f Dockerfile.dev -t stellarbyte:latest .
+systemctl start stellarbyte-backup.service          # 立即备份
+systemctl list-timers 'stellarbyte*' --no-pager      # 下次/上次运行
+journalctl -u stellarbyte-backup.service -n 50 --no-pager
+/usr/local/sbin/stellarbyte-backup.sh verify /opt/stellarpostiz/backups/<file>.dump
+STELLARBYTE_R2_CONFIG_FILE=/root/.config/stellarbyte/r2-backup.env /usr/local/sbin/stellarbyte-backup.sh watchdog
 ```
 
-This will take 5-10 minutes on first build.
-
-### Step 4: Start Services
+### 6.3 恢复演练 (每季度一次, 升级前后各一次)
 
 ```bash
+/usr/local/sbin/stellarbyte-backup.sh restore-drill /opt/stellarpostiz/backups/<stellarbyte 最新>.dump
+```
+
+恢复到容器内临时库, 逐表计数与源库对比, 结束删除临时库. 2026-11-03 首次演练三库全部一致 (输出 `/root/stellarbyte-predeploy-20261103/restore-drill-*.txt`).
+
+### 6.4 真实恢复
+
+> 下列命令未在生产执行过 (已演练的是 6.3 的临时库恢复); 执行前先对当前库再备份一次.
+
+```bash
+cd /opt/stellarpostiz && docker compose stop app temporal
+docker exec -i stellarbyte-postgres pg_restore -U postgres -d stellarbyte --clean --if-exists --no-owner --role=stellarbyte < backups/<file>.dump
+# temporal / temporal_visibility 同理 (--role=temporal); 然后
 docker compose up -d
 ```
 
-### Step 5: Verify Services
+## 7. 监控与告警
+
+| 检查 | 位置 | 告警 |
+|---|---|---|
+| 外部存活 (`/auth/login` + `/api/` 每 5 分钟, 失败重试一次, 只在状态变化时发) | Windmill `u/harrisonvancouver/ops/stellarbyte_liveness_check` + schedule `ops/stellarbyte_liveness_schedule`; 源码 `host/Windmill/ops/stellarbyte_liveness_check.py` | Discord #errors (DOWN / RECOVERED) |
+| 备份 / watchdog | systemd 单元 (第 6 节) | Discord #errors |
+| 容器健康 | compose healthcheck + `restart: unless-stopped` | 无主动告警, 由外部存活覆盖 |
+| 资源 | `docker stats --no-stream`; `free -h` | 人工; 常驻约 app 1.4G / temporal 0.2G / pg 0.2G |
+
+## 8. 网络与防火墙
+
+- 只发布 `127.0.0.1:4007`; Postgres/Redis/Temporal 不发布端口. 子网 `172.30.0.0/24`.
+- `DOCKER-USER` 规则 "丢弃 172.30.0.0/24 出站 tcp/25" 由 `stellarbyte-docker-user-fw.service` 在每次 docker 启动后重放 (本机无 netfilter-persistent, Docker 重启会清空 DOCKER-USER). 检查: `/usr/local/sbin/stellarbyte-docker-user-fw.sh check`; 计数 `iptables -vnL DOCKER-USER`.
+- 验收方法: 容器内 `nc -zv -w5 gmail-smtp-in.l.google.com 25` 必须超时, `mx.stellarbyte.ca 587` 必须通.
+
+## 9. Nginx 与 Cloudflare
+
+- 站点 `stellarpostiz` (字母序在 `listmonk` 之后, 不改变兜底站点); `client_max_body_size 100m`; WebSocket upgrade; X-Forwarded-Proto=http 时 301 到 https. 改动后 `nginx -t && systemctl reload nginx`, 并确认 listmonk-api / smtp-admin 行为不变.
+- 证书 `/etc/ssl/certs/origin.crt` 是**自签名** (不是 Cloudflare Origin CA), 所以 Cloudflare SSL 模式**必须保持 Full, 不得改 Full (strict)**, 否则全部站点 526.
+- DNS: proxied A `app` -> 161.97.184.77; `media` 为 R2 自定义域. 台账 `STELLAR INFRA/DEPLOY/cloudflare/usage-by-project.md`.
+- Cloudflare 会自动注入 `static.cloudflareinsights.com` (zone RUM), 属已知第三方请求.
+
+## 10. R2
+
+| 桶 | 用途 | 访问 | token |
+|---|---|---|---|
+| `stellar-postiz` | 媒体 | 自定义域 `media.stellarbyte.ca` (r2.dev 已关), CORS 只放行 app 域 | 只限该桶的 R2 token, 在 `.env` 的 `CLOUDFLARE_*` |
+| `stellarbyte-backups` | 数据库备份 | 私有, r2.dev 关 | 只限该桶, 在 `/root/.config/stellarbyte/r2-backup.env` |
+
+`CLOUDFLARE_BUCKET_URL` 末尾不能有 `/` (代码自己拼 `/`). 新建 token 后约 30 秒才生效.
+
+## 11. 邮件
+
+- 账号 `app-noreply@stellarbyte.ca` (Stalwart principal `sb-app-noreply`), `EMAIL_PROVIDER=nodemailer`, 提交到 `mx.stellarbyte.ca:587` STARTTLS. 发信用于激活与通知.
+- Stalwart 本身无备份 (另立项), 健康检查脚本见 `STELLAR INFRA/machines/contabo/vps-161.97.184.77.md`.
+
+## 12. 管理员与账号授权
+
+### 12.1 首个管理员 (只在新库上做一次)
+
+`DISABLE_REGISTRATION=true` 仍允许第一个组织注册. 在服务器上对 `127.0.0.1:4007` 注册 (或浏览器注册), 之后注册接口返回 400 "Registration is disabled". 再授超管:
 
 ```bash
-# Check container status
-docker compose ps
-
-# Check logs
-docker compose logs -f postiz
-
-# Test frontend
-curl http://localhost:4100
-
-# Test backend
-curl http://localhost:4000
+docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
+  -c "UPDATE \"User\" SET activated = true, \"isSuperAdmin\" = true WHERE email = '<管理员邮箱>';"
 ```
 
----
-
-## Cloudflare Tunnel Configuration
-
-### Update Tunnel Configuration
-
-Edit `~/.cloudflared/config.yml` on 107:
-
-```yaml
-tunnel: 35398c78-7890-4684-8dc4-e4b246a6d53a
-credentials-file: /Users/ming/.cloudflared/35398c78-7890-4684-8dc4-e4b246a6d53a.json
-
-ingress:
-  - hostname: freshrss.stellarview.ca
-    service: http://localhost:8080
-  - hostname: server.stellarview.ca
-    service: http://localhost:80
-  - hostname: mysql.stellarview.ca
-    service: tcp://localhost:3306
-  - hostname: app.stellarbyte.ca      # ← NEW
-    service: http://localhost:4100
-  - service: http_status:404
-```
-
-### Create DNS Record
-
-**Option A: Via Cloudflare Dashboard**
-1. Go to Cloudflare Dashboard → DNS
-2. Add CNAME record:
-   - Name: `app`
-   - Target: `35398c78-7890-4684-8dc4-e4b246a6d53a.cfargotunnel.com`
-   - Proxy: Enabled
-
-**Option B: Via CLI**
-```bash
-cloudflared tunnel route dns stellarbyte-tunnel app.stellarbyte.ca
-```
-
-### Restart Tunnel
-
-Using the existing `start_dev_env.sh` script:
-
-```bash
-cd /Users/ming/Documents/host/StellarView
-bash bin/start_dev_env.sh --supervisor
-```
-
-Or restart manually:
-```bash
-# Find tunnel process
-ps aux | grep cloudflared
-
-# Kill and restart
-pkill cloudflared
-cloudflared tunnel run &
-```
-
----
-
-## GitHub Actions Setup
-
-### Step 1: Generate SSH Key for GitHub Actions
-
-On your local machine:
-
-```bash
-# Generate new key pair
-ssh-keygen -t ed25519 -C "github-actions@stellarbyte" -f ~/.ssh/github_actions_stellarbyte
-
-# Copy public key to 107
-ssh-copy-id -i ~/.ssh/github_actions_stellarbyte.pub ming@192.168.1.94
-
-# Test connection
-ssh -i ~/.ssh/github_actions_stellarbyte ming@192.168.1.94 "echo 'Connection successful'"
-```
-
-### Step 2: Add GitHub Secrets
-
-Go to: https://github.com/harrison-ming/StellarByteSaaS/settings/secrets/actions
-
-Add these secrets:
-
-1. **SSH_HOST**
-   ```
-   192.168.1.94
-   ```
-
-2. **SSH_USER**
-   ```
-   ming
-   ```
-
-3. **SSH_PRIVATE_KEY**
-   ```
-   # Paste contents of ~/.ssh/github_actions_stellarbyte
-   cat ~/.ssh/github_actions_stellarbyte
-   # Copy entire output including:
-   # -----BEGIN OPENSSH PRIVATE KEY-----
-   # ...
-   # -----END OPENSSH PRIVATE KEY-----
-   ```
-
-### Step 3: Test GitHub Actions
-
-```bash
-# Make a small change
-echo "# Test" >> README.md
-
-# Commit and push
-git add README.md
-git commit -m "Test: Trigger deployment"
-git push origin main
-```
-
-Check workflow status at:
-https://github.com/harrison-ming/StellarByteSaaS/actions
-
----
-
-## Manual Deployment
-
-### Full Deployment
-
-```bash
-ssh ming@192.168.1.94
-cd /Users/ming/Documents/host/StellarByte
-bash deploy-to-107.sh
-```
-
-### Partial Updates
-
-**Update code only** (no rebuild):
-```bash
-git pull origin main
-docker compose restart postiz
-```
-
-**Rebuild image** (after dependency changes):
-```bash
-docker compose down
-docker build -f Dockerfile.dev -t stellarbyte:latest .
-docker compose up -d
-```
-
-**View logs**:
-```bash
-docker compose logs -f postiz
-```
-
----
-
-## Backup & Restore
-
-### Manual Backup
-
-#### Backup Database
-
-```bash
-# Create backup
-docker exec stellarbyte-postgres pg_dump -U stellarbyte stellarbyte > \
-  ~/backups/stellarbyte_$(date +%Y%m%d_%H%M%S).sql
-
-# Compress
-gzip ~/backups/stellarbyte_$(date +%Y%m%d_%H%M%S).sql
-```
-
-#### Backup Redis (Optional)
-
-```bash
-# Redis auto-saves to disk, just copy the file
-docker cp stellarbyte-redis:/data/dump.rdb \
-  ~/backups/redis_$(date +%Y%m%d_%H%M%S).rdb
-```
-
-#### Backup Environment Configuration
-
-```bash
-# Backup .env to secure location
-cp /Users/ming/Documents/host/StellarByte/.env \
-  ~/backups/env_$(date +%Y%m%d_%H%M%S).backup
-```
-
-#### Copy Backups to Local Machine
-
-```bash
-# On local machine
-scp ming@192.168.1.94:~/backups/stellarbyte_*.sql.gz ~/local_backups/
-```
-
-### Restore from Backup
-
-#### Restore Database
-
-```bash
-# Stop application
-docker compose stop postiz
-
-# Restore database
-gunzip < ~/backups/stellarbyte_20250113.sql.gz | \
-  docker exec -i stellarbyte-postgres psql -U stellarbyte stellarbyte
-
-# Restart
-docker compose start postiz
-```
-
-#### Restore Redis
-
-```bash
-docker compose stop redis
-docker cp ~/backups/redis_20250113.rdb stellarbyte-redis:/data/dump.rdb
-docker compose start redis
-```
-
-### Automated Backup Script
-
-Create `~/bin/backup-stellarbyte.sh`:
-
-```bash
-#!/bin/bash
-BACKUP_DIR=~/backups/stellarbyte
-DATE=$(date +%Y%m%d_%H%M%S)
-
-mkdir -p $BACKUP_DIR
-
-# Backup database
-docker exec stellarbyte-postgres pg_dump -U stellarbyte stellarbyte | \
-  gzip > $BACKUP_DIR/db_$DATE.sql.gz
-
-# Backup Redis
-docker cp stellarbyte-redis:/data/dump.rdb $BACKUP_DIR/redis_$DATE.rdb
-
-# Backup .env
-cp /Users/ming/Documents/host/StellarByte/.env $BACKUP_DIR/env_$DATE.backup
-
-# Keep only last 7 days
-find $BACKUP_DIR -name "db_*.sql.gz" -mtime +7 -delete
-find $BACKUP_DIR -name "redis_*.rdb" -mtime +7 -delete
-
-echo "Backup completed: $DATE"
-```
-
-Make executable and schedule:
-```bash
-chmod +x ~/bin/backup-stellarbyte.sh
-
-# Add to crontab (daily at 2 AM)
-crontab -e
-# Add line:
-0 2 * * * ~/bin/backup-stellarbyte.sh >> ~/logs/backup.log 2>&1
-```
-
----
-
-## Troubleshooting
-
-### Issue: Container Won't Start
-
-**Check logs**:
-```bash
-docker compose logs postiz
-```
-
-**Common causes**:
-- Database connection failed → Check `DATABASE_URL` in `.env`
-- Port already in use → Check with `lsof -ti:4100`
-- Missing environment variables → Compare `.env` with `.env.example`
-
-**Solution**:
-```bash
-docker compose down
-docker compose up -d
-docker compose logs -f
-```
-
-### Issue: Health Check Failed
-
-**Test services**:
-```bash
-# Frontend
-curl -I http://localhost:4100
-
-# Backend
-curl -I http://localhost:4000
-
-# Database
-docker exec stellarbyte-postgres psql -U stellarbyte -c "SELECT 1"
-```
-
-**Restart services**:
-```bash
-docker compose restart
-```
-
-### Issue: GitHub Actions Deployment Fails
-
-**Check workflow logs**:
-https://github.com/harrison-ming/StellarByteSaaS/actions
-
-**Common causes**:
-- SSH connection failed → Verify SSH key in GitHub Secrets
-- Permission denied → Check file permissions on 107
-- Build failed → Check for code errors
-
-**Test SSH connection manually**:
-```bash
-ssh -i ~/.ssh/github_actions_stellarbyte ming@192.168.1.94
-```
-
-### Issue: Cloudflare Tunnel Not Working
-
-**Check tunnel status**:
-```bash
-# On 107
-ps aux | grep cloudflared
-```
-
-**Restart tunnel**:
-```bash
-cd /Users/ming/Documents/host/StellarView
-bash bin/start_dev_env.sh --restart-supervisor
-```
-
-**Test tunnel**:
-```bash
-curl https://app.stellarbyte.ca
-```
-
-### Issue: Database Migration Failed
-
-**Manual migration**:
-```bash
-docker exec stellarbyte-app pnpm prisma migrate deploy
-```
-
-### Issue: Out of Disk Space
-
-**Check disk usage**:
-```bash
-df -h
-docker system df
-```
-
-**Clean up**:
-```bash
-# Remove unused images
-docker image prune -a
-
-# Remove unused volumes
-docker volume prune
-
-# Clean build cache
-docker builder prune
-```
-
----
-
-## Monitoring
-
-### Check Service Health
-
-```bash
-# Container status
-docker compose ps
-
-# Resource usage
-docker stats
-
-# Disk usage
-docker system df
-
-# Logs
-docker compose logs --tail=100 postiz
-```
-
-### Application Logs
-
-```bash
-# Real-time logs
-docker compose logs -f postiz
-
-# Last 100 lines
-docker compose logs --tail=100 postiz
-
-# Search logs
-docker compose logs postiz | grep ERROR
-```
-
----
-
-## Updating
-
-### Update from GitHub
-
-```bash
-cd /Users/ming/Documents/host/StellarByte
-git pull origin main
-bash deploy-to-107.sh
-```
-
-### Update Dependencies
-
-```bash
-# Inside container
-docker exec -it stellarbyte-app pnpm install
-
-# Or rebuild image
-docker compose down
-docker build -f Dockerfile.dev -t stellarbyte:latest .
-docker compose up -d
-```
-
----
-
-## Security Best Practices
-
-1. ✅ Never commit `.env` to Git
-2. ✅ Use strong passwords (>20 characters)
-3. ✅ Rotate JWT_SECRET periodically
-4. ✅ Keep Docker images updated
-5. ✅ Regular backups (automated)
-6. ✅ Monitor logs for suspicious activity
-7. ✅ Use SSH keys, not passwords
-8. ✅ Limit SSH access to specific IPs if possible
-
----
-
-## Support
-
-- 📧 Email: support@stellarbyte.ca
-- 🐛 Issues: https://github.com/harrison-ming/StellarByteSaaS/issues
-- 📚 Documentation: https://github.com/harrison-ming/StellarByteSaaS
-
----
-
-*Last Updated: 2025-01-13*
+超管可见 "Agents / Dev" 与 "Apps" 设置页 (普通用户隐藏, D10). 组织 API key 在 Settings 里 Rotate, 新值写回 Windmill 变量 (第 1 节).
+
+### 12.2 社媒账号授权
+
+- 一律在 StellarByte UI "Add Channel" 走 OAuth (旧 `platforms/pinterest` 授权/刷新工具已废弃, D14). 回调 `https://app.stellarbyte.ca/integrations/social/<provider>`.
+- **Pinterest**: 每个账号必须在它自己的 HubStudio 环境里授权 (BW 条目的 "Browser ID" = HubStudio containerCode), 不得在本机浏览器混登. 授权前先在该环境确认 pinterest.com 当前登录的就是目标账号 (头像 / 用户名与 `platforms/pinterest/account-status.md` 一致), 再在该环境打开 StellarByte 登录并 Add Channel. 授权后核对 UI 显示的用户名.
+- token 刷新: Temporal `refreshTokenWorkflow` 对设了 `refreshCron` 的 provider (Pinterest 自 r4 起, 以及 Threads / Instagram standalone) 在 access token 到期时主动刷新; 其余 provider (LinkedIn / YouTube 等) 在发帖时按需刷新. 失败时 integration 标 `refreshNeeded`, UI 提示重连.
+- 授权后回填: Windmill 变量 `publish_accounts` 与 Supabase `pinterest_publisher.accounts` 的 integration_id; `STELLAR CONFIG/StellarByteSaaS/accounts.md`.
+
+## 13. 故障排查
+
+| 现象 | 原因 / 处理 |
+|---|---|
+| `docker compose pull` 报 ghcr `connection reset by peer` (IPv6) | 网络抖动, 旧容器不受影响; 重试 (`for i in 1 2 3; do docker compose pull app && break; sleep 30; done`). 镜像约 7GB, 首拉约 13 分钟 |
+| app 反复重启, 日志 `ERR_INVALID_URL` (start.mcp.ts) | `NEXT_PUBLIC_BACKEND_URL` 必须是绝对地址 `https://app.stellarbyte.ca/api`, 不能是 `/api` |
+| app 启动卡在 prisma | 启动脚本每次跑 `pnpm dlx prisma@6.5.0 db push`, 需要容器能访问 registry.npmjs.org; 外网或 npm 故障时启动失败, 恢复后 `docker compose restart app` |
+| 磁盘不足 | `df -h /`; `docker system df`; 只删确认无用的旧镜像 (`docker image rm <旧 tag>`), 保留当前与上一版. 不要 `docker volume prune` (同机有 Stalwart / Listmonk 的卷); 主机遗留镜像与匿名卷约 12G, 清理须 Harrison 确认 |
+| 备份单元 226/NAMESPACE | `ReadWritePaths` 目录不存在: `install -d -m 0700 /opt/stellarpostiz/backups` |
+| 登录页出现 Google 按钮 | `GOOGLE_LOGIN_ENABLED` 不是 `false` (r3 起默认隐藏; Google 登录会撞 "registration disabled") |
+| LinkedIn 出现 "LinkedIn Page" | `HIDDEN_PROVIDERS="linkedin-page"` 丢了 |
+| 媒体 URL 404 / 双斜杠 | `CLOUDFLARE_BUCKET_URL` 末尾多了 `/` |
+| Cloudflare 526 | SSL 模式被改成 strict, 改回 Full |
+| 内存紧张 / OOM | `docker stats`; app 上限 2g 由 cgroup 硬限, 先被杀的是 app/temporal (oom_score_adj 300), Stalwart (-500) 受保护 |

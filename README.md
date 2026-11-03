@@ -1,3 +1,9 @@
+> **StellarByte**: this branch (`stellarbyte`) is the source of the live service at
+> https://app.stellarbyte.ca (re-launched 2026-11-03): upstream Postiz `v2.25.3` plus
+> StellarByte branding and a few patches, licensed AGPL-3.0. Operations:
+> [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); patch strategy and upstream sync:
+> [docs/redeploy-spec.md](docs/redeploy-spec.md). The upstream README follows.
+
 <p align="center">
   <a href="https://postiz.com/" target="_blank">
   <picture>
