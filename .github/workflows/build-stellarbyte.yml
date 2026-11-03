@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/harrison-ming/stellarbyte
+  IMAGE: ghcr.io/harrison-ming/stellarbyte-app
 
 jobs:
   build:

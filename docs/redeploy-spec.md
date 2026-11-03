@@ -29,7 +29,7 @@ supersedes: docs/DEPLOYMENT.md (107 Mac + Cloudflare Tunnel 时代的部署指�
 | D3 | 设 `RUN_CRON=true` | 否则 `missingPostWorkflow` 不启动, 漏发不补 |
 | D4 | 数据库: Contabo 本机 Postgres 容器 (app 与 Temporal 分库), 不再用共享 Supabase | 旧 `postiz` schema 已删且无备份; 共享实例是免费版; 规范禁 postgres 超管直连 |
 | D5 | 不部署 Elasticsearch; Temporal visibility 用 SQL (Postgres). 若实测不可行, 允许 ES 单节点 heap 256m 且 mem_limit 640m, 同时须重算第 5.2 节内存预算 | 带 ES 超出主机安全容量 |
-| D6 | 镜像由 GitHub Actions 构建并推到 `ghcr.io/harrison-ming/stellarbyte`, Contabo 只 pull, 禁止在 Contabo 上构建 | 构建需约 4GB 内存, 会挤占邮件服务 |
+| D6 | 镜像由 GitHub Actions 构建并推到 `ghcr.io/harrison-ming/stellarbyte-app` (公开包, 随公开仓库; 旧私有包 `stellarbyte` 未授权 Actions, 弃用), Contabo 只 pull, 禁止在 Contabo 上构建 | 构建需约 4GB 内存, 会挤占邮件服务 |
 | D7 | 品牌主色统一蓝 `#3450D4`, logo 一并改蓝 (旧绿 `#01d408` 废弃) | commit 2d368f32 "统一品牌主色调为 #3450D4" |
 | D8 | 品牌替换做到 A 档: 用户主路径 + 全部 locale; 不做 Agents/MCP 内部名与 Chrome 扩展 | 见第 3 节 |
 | D9 | 去掉登录页粒子背景 (react-tsparticles 不兼容 React 19) | — |
@@ -163,7 +163,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 
 - 主线 `stellarbyte` = `v2.25.3` + 补丁 commit, `git log v2.25.3..stellarbyte` 只有 StellarByte 补丁.
 - 品牌: 登录、注册、侧栏、页面标题、邮件、OAuth 授权页、onboarding 无 Postiz 字样 (白名单除外); 主色蓝; 无 Postiz 社会证明; 页脚有署名与源码链接.
-- CI 构建成功并推送 `ghcr.io/harrison-ming/stellarbyte:stellarbyte-v2.25.3` (amd64).
+- CI 构建成功并推送 `ghcr.io/harrison-ming/stellarbyte-app:stellarbyte-v2.25.3-r2` (amd64; 首个 tag `stellarbyte-v2.25.3` 因包权限推送失败, 已推送的 tag 不改写, 用 `-rN` 后缀重建).
 
 ### 8.2 本机冒烟
 
