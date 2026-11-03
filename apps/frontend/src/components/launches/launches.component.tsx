@@ -62,8 +62,8 @@ export const SVGLine = () => {
           y2="-28.6843"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#662FDA" />
-          <stop offset="1" stopColor="#5720CB" />
+          <stop stopColor="#3450D4" />
+          <stop offset="1" stopColor="#2A41AB" />
         </linearGradient>
         <radialGradient
           id="paint1_radial_1930_1119"
@@ -73,8 +73,8 @@ export const SVGLine = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(1.19333 7.45342) rotate(21.2064) scale(16.1503 188.627)"
         >
-          <stop stopColor="#8C66FF" />
-          <stop offset="1" stopColor="#8C66FF" stopOpacity="0" />
+          <stop stopColor="#6E86FF" />
+          <stop offset="1" stopColor="#6E86FF" stopOpacity="0" />
         </radialGradient>
       </defs>
     </svg>

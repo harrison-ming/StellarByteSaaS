@@ -228,17 +228,19 @@ export function RegisterAfter({
                 )}
                 &nbsp;
                 <a
-                  href={`https://postiz.com/terms`}
+                  href={`https://stellarbyte.ca/terms/`}
                   className="underline hover:font-bold"
-                  rel="nofollow"
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
                 >
                   {t('terms_of_service', 'Terms of Service')}
                 </a>
                 &nbsp;
                 {t('and', 'and')}&nbsp;
                 <a
-                  href={`https://postiz.com/privacy`}
-                  rel="nofollow"
+                  href={`https://stellarbyte.ca/privacy/`}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
                   className="underline hover:font-bold"
                 >
                   {t('privacy_policy', 'Privacy Policy')}
@@ -264,6 +266,14 @@ export function RegisterAfter({
                   >
                     {t('sign_in', 'Sign In')}
                   </Link>
+                </p>
+                <p className="mt-2 text-sm text-center">
+                  <a
+                    href="https://stellarbyte.ca"
+                    className="underline cursor-pointer"
+                  >
+                    {t('back_to_home', '← Back to Home')}
+                  </a>
                 </p>
               </div>
             </div>
