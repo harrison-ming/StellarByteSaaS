@@ -1,0 +1,26 @@
+# StellarByte residual-scan allowlist (scripts/brand/apply-brand.mjs).
+# Format: <file glob | locale:<key>> | <substring that must be on the line, or *> | <reason (mandatory)>
+# Keep entries narrow; every entry is a conscious decision that the text may stay.
+
+# --- locale keys (never rewritten; all on pages hidden per D10 or removed by the hide commit) ---
+locale:check_n8n | * | real Postiz product (n8n node), developer page hidden (D10)
+locale:chat_onboarding_description | * | real Postiz CLI, onboarding agent step hidden (D10)
+locale:cli_onboarding_description | * | real Postiz CLI, onboarding agent step hidden (D10)
+locale:connector_onboarding_description | * | official Postiz connector via Postiz Cloud, hidden (D10)
+locale:connector_self_hosted_description | * | official Postiz connector via Postiz Cloud, hidden (D10)
+locale:sign_in_no_api_key | * | 'Sign in with Postiz' routes through Postiz Cloud, entry removed by hide commit
+locale:oauth_sign_in_hint | * | Postiz Cloud sign-in hint, entry removed by hide commit
+
+# --- source files ---
+apps/frontend/src/components/stellarbyte/powered-by.component.tsx | Postiz | required attribution footer "Powered by Postiz · Source" (D10, AGPL-3.0 s.13)
+apps/frontend/src/components/developer/developer.component.tsx | * | developer / OAuth-app page, hidden from non-admins (D10); describes the real Postiz OAuth platform
+apps/frontend/src/components/public-api/public.component.tsx | * | public API / MCP / CLI page, hidden from non-admins (D10); real product names (npm i -g postiz, Postiz skill) per 3.2 rule 4
+apps/frontend/src/components/onboarding/onboarding.modal.tsx | * | onboarding steps 2-3 (Postiz MCP / CLI / connector / tutorial video) are unreachable after the hide commit
+apps/frontend/src/components/oauth/self.hosted.component.tsx | * | only rendered for Postiz Cloud's official connector relay (appInfo.selfHosted); factual description of Postiz Cloud
+libraries/helpers/src/swagger/load.swagger.ts | Postiz Swagger | developer API docs title (3.2 rule 4)
+libraries/nestjs-libraries/src/chat/** | * | Agents / MCP internal names and tool descriptions are out of scope (D8)
+libraries/nestjs-libraries/src/database/prisma/agencies/agencies.service.ts | * | Postiz Cloud agency directory emails (links to postiz.com); no route or UI reaches this service
+libraries/nestjs-libraries/src/integrations/social/tumblr.provider.ts | Postiz/1.0 | HTTP User-Agent header, not user-visible (3.2 rule 3)
+libraries/nestjs-libraries/src/integrations/social/wordpress.provider.ts | Postiz/1.0 | HTTP User-Agent header, not user-visible (3.2 rule 3)
+libraries/nestjs-libraries/src/sentry/initialize.sentry.ts | Postiz | Sentry internal service name, not user-visible; Sentry is disabled (no DSN)
+libraries/react-shared-libraries/src/sentry/initialize.sentry.next.basic.ts | Postiz Frontend | Sentry internal service name, not user-visible; Sentry is disabled (no DSN)

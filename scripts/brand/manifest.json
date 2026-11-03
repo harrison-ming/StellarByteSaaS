@@ -1,0 +1,345 @@
+{
+  "$comment": "StellarByte L2 brand manifest. See scripts/brand/apply-brand.mjs and docs/redeploy-spec.md 3.2. Every rule: files (globs), find, replace, min (minimum expected hits; fewer fails the build).",
+  "brand": "StellarByte",
+  "rules": [
+    {
+      "id": "page-titles",
+      "files": [
+        "apps/frontend/src/app/**/{page,layout}.tsx"
+      ],
+      "find": "isGeneralServerSide() ? 'Postiz",
+      "replace": "isGeneralServerSide() ? 'StellarByte",
+      "min": 15,
+      "note": "<title> of auth / site pages (IS_GENERAL=true picks the first branch)"
+    },
+    {
+      "id": "agent-page-titles",
+      "files": [
+        "apps/frontend/src/app/**/{page,layout}.tsx"
+      ],
+      "find": "'Postiz - Agent'",
+      "replace": "'StellarByte - Agent'",
+      "min": 3
+    },
+    {
+      "id": "oauth-authorize-page",
+      "files": [
+        "apps/frontend/src/components/oauth/authorize.component.tsx"
+      ],
+      "find": "Postiz",
+      "replace": "StellarByte",
+      "min": 2,
+      "note": "\"requesting access to your Postiz account\" and \"Sign in to Postiz\""
+    },
+    {
+      "id": "add-provider-extension-1",
+      "files": [
+        "apps/frontend/src/components/launches/add.provider.component.tsx"
+      ],
+      "find": "The Postiz browser extension",
+      "replace": "The browser extension",
+      "min": 1,
+      "note": "the Chrome extension is a real Postiz product, StellarByte does not ship one: drop the name"
+    },
+    {
+      "id": "add-provider-extension-2",
+      "files": [
+        "apps/frontend/src/components/launches/add.provider.component.tsx"
+      ],
+      "find": "'Postiz browser extension",
+      "replace": "'Browser extension",
+      "min": 1
+    },
+    {
+      "id": "add-provider-disclaimer",
+      "files": [
+        "apps/frontend/src/components/launches/add.provider.component.tsx"
+      ],
+      "find": "Postiz does not take responsibility",
+      "replace": "StellarByte does not take responsibility",
+      "min": 1
+    },
+    {
+      "id": "hubspot-installed",
+      "files": [
+        "apps/frontend/src/components/launches/hubspot.installed.tsx"
+      ],
+      "find": "Postiz",
+      "replace": "StellarByte",
+      "min": 4
+    },
+    {
+      "id": "moltbook-agent-defaults",
+      "files": [
+        "apps/frontend/src/components/launches/web3/providers/moltbook.provider.tsx"
+      ],
+      "find": "Postiz",
+      "replace": "StellarByte",
+      "min": 2
+    },
+    {
+      "id": "farcaster-approve",
+      "files": [
+        "apps/frontend/src/components/auth/providers/farcaster.provider.tsx"
+      ],
+      "find": "approve Postiz",
+      "replace": "approve StellarByte",
+      "min": 1
+    },
+    {
+      "id": "pre-condition",
+      "files": [
+        "apps/frontend/src/components/layout/pre-condition.component.tsx"
+      ],
+      "find": "another Postiz account",
+      "replace": "another StellarByte account",
+      "min": 1
+    },
+    {
+      "id": "media-settings-tooltip",
+      "files": [
+        "apps/frontend/src/components/new-launch/media.settings.section.tsx"
+      ],
+      "find": "Postiz",
+      "replace": "StellarByte",
+      "min": 1
+    },
+    {
+      "id": "agent-welcome",
+      "files": [
+        "apps/frontend/src/components/agents/agent.chat.tsx"
+      ],
+      "find": "your Postiz agent",
+      "replace": "your StellarByte agent",
+      "min": 1
+    },
+    {
+      "id": "approved-apps",
+      "files": [
+        "apps/frontend/src/components/approved-apps/approved-apps.component.tsx"
+      ],
+      "find": "your Postiz account",
+      "replace": "your StellarByte account",
+      "min": 1
+    },
+    {
+      "id": "webhooks-intro",
+      "files": [
+        "apps/frontend/src/components/webhooks/webhooks.tsx"
+      ],
+      "find": "happens in Postiz",
+      "replace": "happens in StellarByte",
+      "min": 1
+    },
+    {
+      "id": "tiktok-upload-hint",
+      "files": [
+        "apps/frontend/src/components/new-launch/providers/tiktok/tiktok.provider.tsx"
+      ],
+      "find": "\"#Postiz\"",
+      "replace": "\"#StellarByte\"",
+      "min": 1,
+      "note": "TikTok fills the caption with the app name, which is ours"
+    },
+    {
+      "id": "billing-faq-repo",
+      "files": [
+        "apps/frontend/src/components/billing/faq.component.tsx"
+      ],
+      "find": "https://github.com/gitroomhq/postiz-app",
+      "replace": "https://github.com/harrison-ming/StellarByteSaaS",
+      "min": 1,
+      "note": "AGPL: point to the source actually deployed"
+    },
+    {
+      "id": "billing-faq",
+      "files": [
+        "apps/frontend/src/components/billing/faq.component.tsx"
+      ],
+      "find": "Postiz",
+      "replace": "StellarByte",
+      "min": 7
+    },
+    {
+      "id": "billing-first",
+      "files": [
+        "apps/frontend/src/components/billing/first.billing.component.tsx"
+      ],
+      "find": "Postiz",
+      "replace": "StellarByte",
+      "min": 3
+    },
+    {
+      "id": "email-digest-subject",
+      "files": [
+        "apps/orchestrator/src/workflows/digest.email.workflow.ts"
+      ],
+      "find": "[Postiz]",
+      "replace": "[StellarByte]",
+      "min": 1
+    },
+    {
+      "id": "email-login-changed",
+      "files": [
+        "libraries/nestjs-libraries/src/database/prisma/users/users.service.ts"
+      ],
+      "find": "Postiz",
+      "replace": "StellarByte",
+      "min": 2,
+      "note": "subject + body of the admin login-change email"
+    },
+    {
+      "id": "error-no-account",
+      "files": [
+        "libraries/nestjs-libraries/src/database/prisma/organizations/organization.service.ts"
+      ],
+      "find": "No Postiz account",
+      "replace": "No StellarByte account",
+      "min": 1
+    },
+    {
+      "id": "error-hubspot-install",
+      "files": [
+        "libraries/nestjs-libraries/src/database/prisma/oauth/oauth.service.ts"
+      ],
+      "find": "installing Postiz",
+      "replace": "installing StellarByte",
+      "min": 2
+    },
+    {
+      "id": "error-facebook-authorized",
+      "files": [
+        "libraries/nestjs-libraries/src/integrations/social/facebook.provider.ts"
+      ],
+      "find": "Postiz is not authorized",
+      "replace": "StellarByte is not authorized",
+      "min": 1
+    },
+    {
+      "id": "error-tiktok-upload",
+      "files": [
+        "libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts"
+      ],
+      "find": "to Postiz",
+      "replace": "to StellarByte",
+      "min": 1
+    },
+    {
+      "id": "error-tiktok-business-upload",
+      "files": [
+        "libraries/nestjs-libraries/src/integrations/social/tiktok.business.provider.ts"
+      ],
+      "find": "uploaded to Postiz",
+      "replace": "uploaded to StellarByte",
+      "min": 1
+    },
+    {
+      "id": "error-youtube-trusted-app",
+      "files": [
+        "libraries/nestjs-libraries/src/integrations/social/youtube.provider.ts"
+      ],
+      "find": "mark Postiz as",
+      "replace": "mark StellarByte as",
+      "min": 1
+    },
+    {
+      "id": "error-threads-upload",
+      "files": [
+        "libraries/nestjs-libraries/src/integrations/social/threads.provider.ts"
+      ],
+      "find": "uploaded to Postiz",
+      "replace": "uploaded to StellarByte",
+      "min": 1
+    },
+    {
+      "id": "mastodon-client-name",
+      "files": [
+        "libraries/nestjs-libraries/src/integrations/social/mastodon.custom.provider.ts"
+      ],
+      "find": "'client_name', 'Postiz'",
+      "replace": "'client_name', 'StellarByte'",
+      "min": 1,
+      "note": "app name shown on the Mastodon consent screen"
+    },
+    {
+      "id": "email-listmonk-welcome",
+      "files": [
+        "libraries/nestjs-libraries/src/newsletter/providers/listmonk.provider.ts"
+      ],
+      "find": "Welcome to Postiz",
+      "replace": "Welcome to StellarByte",
+      "min": 1
+    }
+  ],
+  "locales": {
+    "files": "libraries/react-shared-libraries/src/translation/locales/*/translation.json",
+    "expectFiles": 16,
+    "overrideMinPerKey": 1,
+    "overrideKeys": {
+      "join_10000_entrepreneurs_who_use_postiz": "Manage all your social media in one place",
+      "billing_join_over": "",
+      "billing_entrepreneurs_count": "",
+      "billing_who_use": "",
+      "billing_postiz_grow_social": "StellarByte: grow your social presence"
+    },
+    "rules": [
+      {
+        "id": "repo-link",
+        "find": "https://github.com/gitroomhq/postiz-app",
+        "replace": "https://github.com/harrison-ming/StellarByteSaaS",
+        "min": 16
+      },
+      {
+        "id": "brand-latin",
+        "find": "Postiz",
+        "replace": "StellarByte",
+        "min": 300
+      },
+      {
+        "id": "brand-hebrew",
+        "find": "פוסטיז",
+        "replace": "StellarByte",
+        "min": 1
+      },
+      {
+        "id": "brand-bengali",
+        "find": "পোস্টিজ",
+        "replace": "StellarByte",
+        "min": 1
+      }
+    ]
+  },
+  "residual": {
+    "pattern": "Postiz|פוסטיז|পোস্টিজ",
+    "files": [
+      "apps/frontend/src/**/*.{ts,tsx}",
+      "apps/backend/src/**/*.ts",
+      "apps/orchestrator/src/**/*.ts",
+      "libraries/nestjs-libraries/src/**/*.{ts,tsx}",
+      "libraries/react-shared-libraries/src/**/*.{ts,tsx}",
+      "libraries/helpers/src/**/*.{ts,tsx}"
+    ],
+    "note": "comment lines are ignored; locale files are scanned value-by-value"
+  },
+  "honesty": {
+    "pattern": "\\b\\d{1,3}(,\\d{3})+\\+|\\b\\d+k\\+\\s*(users|entrepreneurs|creators|customers)",
+    "files": [
+      "apps/frontend/src/**/*.tsx",
+      "libraries/react-shared-libraries/src/**/*.tsx"
+    ]
+  },
+  "colors": {
+    "overridesFile": "apps/frontend/src/app/brand-overrides.scss",
+    "deprecated": [
+      "612bd3",
+      "612ad5",
+      "7236f1",
+      "7b3ff2",
+      "fc69ff"
+    ],
+    "files": [
+      "apps/frontend/src/**/*.tsx",
+      "libraries/react-shared-libraries/src/**/*.tsx"
+    ]
+  }
+}
