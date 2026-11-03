@@ -54,6 +54,9 @@ export class PinterestProvider
   identifier = 'pinterest';
   name = 'Pinterest';
   isBetweenSteps = false;
+  // Refresh before the access token expires so the 60-day refresh token
+  // never lapses on channels that do not post for a while.
+  refreshCron = true;
   scopes = [
     'boards:read',
     'boards:write',
@@ -170,7 +173,9 @@ export class PinterestProvider
   }
 
   async refreshToken(refreshToken: string): Promise<AuthTokenDetails> {
-    const { access_token, expires_in } = await (
+    // Pinterest rotates the continuous refresh token (60-day lifetime) on
+    // every refresh - the old one is not extended, so keep the new one.
+    const { access_token, refresh_token, expires_in } = await (
       await fetch('https://api.pinterest.com/v5/oauth/token', {
         method: 'POST',
         headers: {
@@ -201,7 +206,7 @@ export class PinterestProvider
       id: id,
       name: username,
       accessToken: access_token,
-      refreshToken: refreshToken,
+      refreshToken: refresh_token || refreshToken,
       expiresIn: expires_in,
       picture: profile_image || '',
       username,
