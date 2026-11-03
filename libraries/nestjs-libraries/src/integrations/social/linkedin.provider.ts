@@ -66,11 +66,12 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
   scopes = [
     'openid',
     'profile',
+    'email',
     'w_member_social',
-    'r_basicprofile',
-    'rw_organization_admin',
-    'w_organization_social',
-    'r_organization_social',
+    // 'r_basicprofile', // StellarByte: not approved by LinkedIn
+    // 'rw_organization_admin', // StellarByte: requires Marketing Developer Platform
+    // 'w_organization_social',
+    // 'r_organization_social',
   ];
   override maxConcurrentJob = 8; // LinkedIn limits are daily budgets
   refreshWait = true;
@@ -184,7 +185,7 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
     const codeVerifier = makeSecureId(30);
     const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
       process.env.LINKEDIN_CLIENT_ID
-    }&prompt=none&redirect_uri=${encodeURIComponent(
+    }&redirect_uri=${encodeURIComponent(
       `${process.env.FRONTEND_URL}/integrations/social/linkedin`
     )}&state=${state}&scope=${encodeURIComponent(this.scopes.join(' '))}`;
     return {
