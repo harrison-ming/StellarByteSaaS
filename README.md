@@ -1,10 +1,10 @@
 # StellarByte
 
-> **DECOMMISSIONED (2026-09-08):** The production service at
-> `app.stellarbyte.ca` has been shut down. Its containers, Redis volume, runtime
-> images, production `.env`, Cloudflare DNS record, dedicated Nginx route, and
-> Supabase `postiz` schema were removed. The source repository is retained as an
-> archive; the production deploy workflow is disabled.
+> **Status (2026-11-03): live again at https://app.stellarbyte.ca.** The running
+> code is the [`stellarbyte`](https://github.com/harrison-ming/StellarByteSaaS/tree/stellarbyte)
+> branch (upstream Postiz `v2.25.3` + StellarByte patches, AGPL-3.0); see its
+> `docs/DEPLOYMENT.md` (operations) and `docs/redeploy-spec.md`. This `main` branch is the
+> old v2.7 fork history (tag `legacy/v2.7-fork`), kept as an archive and not deployed.
 
 <div align="center">
 
