@@ -50,7 +50,7 @@ supersedes: docs/DEPLOYMENT.md (107 Mac + Cloudflare Tunnel 时代的部署指�
 | L1 git 补丁 (少而稳) | 资源 (favicon.ico / favicon.svg / icon.svg / postiz.svg 原地替换); `new-layout/logo.tsx`、`ui/logo-text.component.tsx`; `colors.scss` 变量; 新增 `brand-overrides.scss` 统一覆盖写死的 `#612BD3` 等任意值类; `auth/layout.tsx` 去掉评价与 "20,000+" 改为 StellarByte 标语; `register.tsx` 条款/隐私链接指向 stellarbyte.ca; 页脚署名; 隐藏开发者/API/MCP 页; 隐藏 LinkedIn Page provider | 主线上按主题拆成少量 commit (brand / scopes / hide), 每个上游 tag cherry-pick | 低, 涉及文件多数半年内上游 0 改动 |
 | L1' 非品牌补丁 (独立) | Facebook 去 `pages_manage_engagement`; LinkedIn 只保留 `openid profile email w_member_social`、去 `prompt=none`; `refreshTokens()` 中 `return`→`continue` | 单独一个 commit, 便于升级时取舍 (上游 main 61cf1dda 已修 continue, 升级到含它的版本后丢弃) | 中, provider 文件上游改动频繁 |
 | L2 构建时替换脚本 | 页面 title、16 种 locale 的值 (只改值不改 key)、写死文案、邮件标题 (`[Postiz]` 等)、OAuth 授权页 "Sign in to Postiz"、onboarding 文案与 "Sign in with Postiz" 入口 | `scripts/brand/apply-brand.mjs` + `scripts/brand/manifest.json`; 在 Dockerfile `pnpm run build` 之前运行 | 无 git 冲突 |
-| L3 环境变量 | `NEXT_PUBLIC_BACKEND_URL=/api` (取代旧 backendUrl 代码补丁)、`EMAIL_FROM_NAME=StellarByte`、关闭统计外发 | `.env` | 零 |
+| L3 环境变量 | `NEXT_PUBLIC_BACKEND_URL=https://app.stellarbyte.ca/api` (同源绝对地址, 取代旧 backendUrl 代码补丁; 阶段 2 实测相对值 `/api` 会让 backend 在 `start.mcp.ts` 的 `new URL()` 处崩溃)、`EMAIL_FROM_NAME=StellarByte`、关闭统计外发 | `.env` | 零 |
 
 ### 3.2 替换脚本的硬性要求 (验收项)
 

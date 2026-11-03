@@ -1,0 +1,16 @@
+# Local trial override (docs/redeploy-spec.md D16, phase 2). Not used on Contabo.
+#   docker compose --env-file <local.env> -f docker-compose.yml -f docker-compose.local.yml up -d
+# <local.env> lives outside git and must set STELLARBYTE_ENV_FILE to its own absolute path,
+# plus STELLARBYTE_SUBNET when 172.30.0.0/24 is already used on this machine.
+services:
+  app:
+    image: stellarbyte:local
+    ports: !override
+      - '127.0.0.1:4007:5000'
+    environment:
+      MAIN_URL: http://localhost:4007
+      FRONTEND_URL: http://localhost:4007
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:4007/api
+      STORAGE_PROVIDER: local
+      UPLOAD_DIRECTORY: /uploads
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: /uploads

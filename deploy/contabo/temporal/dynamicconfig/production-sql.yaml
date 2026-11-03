@@ -1,0 +1,5 @@
+# Temporal dynamic config for the StellarByte stack (SQL persistence + SQL visibility).
+# Upstream dev file sets system.forceSearchAttributesCacheRefreshOnRead=true; not used here.
+limit.maxIDLength:
+  - value: 255
+    constraints: {}

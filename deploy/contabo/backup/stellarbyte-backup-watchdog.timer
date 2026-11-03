@@ -1,0 +1,12 @@
+# Hourly at :50 UTC (Listmonk watchdog runs at :45).
+[Unit]
+Description=Verify StellarByte backups hourly
+
+[Timer]
+OnCalendar=*-*-* *:50:00 UTC
+Persistent=true
+RandomizedDelaySec=60
+Unit=stellarbyte-backup-watchdog.service
+
+[Install]
+WantedBy=timers.target

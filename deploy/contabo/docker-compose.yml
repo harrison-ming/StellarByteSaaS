@@ -1,0 +1,196 @@
+# StellarByte production stack (docs/redeploy-spec.md sections 5.1 / 5.2 / 5.5).
+# Contabo: /opt/stellarpostiz/{docker-compose.yml,.env}; `docker compose up -d`.
+# Local trial: see docker-compose.local.yml (same file + small override).
+#
+# Hard rules encoded here (do not relax without updating the spec):
+#   - dedicated network 172.30.0.0/24; only the app entry port is published, on 127.0.0.1
+#   - postgres / redis / temporal publish nothing
+#   - mem_limit == memswap_limit, cpus and oom_score_adj per spec 5.2
+#   - named volumes only, json-file logs 10m x 3, restart unless-stopped, healthchecks
+#   - no Elasticsearch, no temporal-ui: Temporal visibility is SQL on the same Postgres (D5)
+#
+# Variables read from .env (interpolation) - see .env.example:
+#   STELLARBYTE_TAG, STELLARBYTE_HTTP_PORT, POSTGRES_SUPERUSER_PASSWORD,
+#   STELLARBYTE_DB_PASSWORD, TEMPORAL_DB_PASSWORD, REDIS_PASSWORD
+# All passwords must be URL-safe (hex), they are embedded in connection URLs.
+
+name: stellarbyte
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  app:
+    image: ghcr.io/harrison-ming/stellarbyte-app:${STELLARBYTE_TAG:?set STELLARBYTE_TAG}
+    container_name: stellarbyte-app
+    restart: unless-stopped
+    env_file:
+      - path: ${STELLARBYTE_ENV_FILE:-.env}
+        required: true
+    environment:
+      DATABASE_URL: postgresql://stellarbyte:${STELLARBYTE_DB_PASSWORD:?}@postgres:5432/stellarbyte
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      BACKEND_INTERNAL_URL: http://localhost:3000
+      IS_GENERAL: 'true'
+      RUN_CRON: 'true'
+      DISABLE_REGISTRATION: 'true'
+      # The shared .env also feeds compose interpolation; keep the other
+      # services' secrets out of the app process environment.
+      POSTGRES_SUPERUSER_PASSWORD: ''
+      TEMPORAL_DB_PASSWORD: ''
+      STELLARBYTE_DB_PASSWORD: ''
+      REDIS_PASSWORD: ''
+    volumes:
+      - app-uploads:/uploads
+    ports:
+      - '127.0.0.1:${STELLARBYTE_HTTP_PORT:-4007}:5000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    healthcheck:
+      # nginx:5000 -> backend /api/ and nginx:5000 -> frontend /auth/login (no curl in image)
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          Promise.all(['http://127.0.0.1:5000/api/','http://127.0.0.1:5000/auth/login']
+          .map(u=>fetch(u,{redirect:'manual'}).then(r=>{if(r.status>=500)throw new Error(u+' '+r.status)})))
+          .then(()=>process.exit(0),e=>{console.error(String(e));process.exit(1)})
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 2.0
+    oom_score_adj: 300
+    logging: *logging
+    networks: [stellarbyte]
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: stellarbyte-postgres
+    restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - max_connections=150
+      - -c
+      - effective_cache_size=512MB
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?}
+      POSTGRES_DB: postgres
+      # consumed only by postgres/init/10-databases.sh on first initialisation
+      STELLARBYTE_DB_PASSWORD: ${STELLARBYTE_DB_PASSWORD:?}
+      TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:?}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d stellarbyte && pg_isready -U postgres -d temporal']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    oom_score_adj: 0
+    shm_size: 128m
+    logging: *logging
+    networks: [stellarbyte]
+
+  redis:
+    image: redis:7-alpine
+    container_name: stellarbyte-redis
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - >-
+        exec redis-server --requirepass "$$REDIS_PASSWORD"
+        --maxmemory 192mb --maxmemory-policy noeviction
+        --appendonly yes --appendfsync everysec
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    oom_score_adj: 200
+    logging: *logging
+    networks: [stellarbyte]
+
+  temporal:
+    image: temporalio/auto-setup:1.28.1
+    container_name: stellarbyte-temporal
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: '5432'
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:?}
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      # databases are pre-created by postgres/init (role temporal has no CREATEDB)
+      SKIP_DB_CREATE: 'true'
+      # SQL visibility (no Elasticsearch, spec D5)
+      ENABLE_ES: 'false'
+      SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES: 'true'
+      DEFAULT_NAMESPACE: default
+      DEFAULT_NAMESPACE_RETENTION: 72h
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/production-sql.yaml
+      TEMPORAL_ADDRESS: temporal:7233
+    volumes:
+      - ./temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'temporal operator cluster health --address temporal:7233 | grep -q SERVING']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    oom_score_adj: 300
+    logging: *logging
+    networks: [stellarbyte]
+
+networks:
+  stellarbyte:
+    name: stellarbyte-net
+    driver: bridge
+    ipam:
+      config:
+        # spec 5.1: 172.30.0.0/24 on Contabo. STELLARBYTE_SUBNET exists only for the
+        # local trial Mac, where another project already holds 172.30.0.0/24.
+        - subnet: ${STELLARBYTE_SUBNET:-172.30.0.0/24}
+
+volumes:
+  pg-data:
+  redis-data:
+  app-uploads:

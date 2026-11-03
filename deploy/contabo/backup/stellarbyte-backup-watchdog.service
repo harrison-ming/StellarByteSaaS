@@ -1,0 +1,21 @@
+# Template. Fails (and alerts via Discord) when any database lacks a verified backup
+# newer than 26h locally, or when the private R2 copy is missing / differs.
+[Unit]
+Description=Verify StellarByte local and R2 backup integrity
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=STELLARBYTE_BACKUP_DIR=/opt/stellarpostiz/backups
+Environment=STELLARBYTE_R2_CONFIG_FILE=/root/.config/stellarbyte/r2-backup.env
+ExecStart=/usr/local/sbin/notify-command-status.sh --name stellarbyte-backup-watchdog -- /usr/local/sbin/stellarbyte-backup.sh watchdog
+User=root
+Group=root
+UMask=0077
+StateDirectory=stellarmail-command-status
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict

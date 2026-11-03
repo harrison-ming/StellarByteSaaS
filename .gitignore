@@ -65,3 +65,10 @@ apps/frontend/public/g.js
 
 # StellarByte: marker written by scripts/brand/apply-brand.mjs
 .brand-applied
+
+# StellarByte deploy: real env files never enter git (deploy/contabo/.env.example is the template)
+deploy/**/.env
+deploy/**/*.env
+deploy/**/.env.*
+!deploy/**/.env.example
+.wrangler/
