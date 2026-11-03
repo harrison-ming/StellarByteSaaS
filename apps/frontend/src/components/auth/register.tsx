@@ -97,6 +97,7 @@ export function RegisterAfter({
     genericOauth,
     neynarClientId,
     appleClientId,
+    googleLoginEnabled,
     billingEnabled,
   } = useVariables();
   const [loading, setLoading] = useState(false);
@@ -174,7 +175,7 @@ export function RegisterAfter({
                   {genericOauth && isGeneral ? (
                     <OauthProvider />
                   ) : (
-                    <GoogleProvider />
+                    !!googleLoginEnabled && <GoogleProvider />
                   )}
                   {!!appleClientId && <AppleProvider />}
                   {!!neynarClientId && <FarcasterProvider />}

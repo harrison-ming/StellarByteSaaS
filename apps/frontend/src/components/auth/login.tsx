@@ -32,7 +32,17 @@ export function Login() {
     appleClientId,
     billingEnabled,
     genericOauth,
+    googleLoginEnabled,
   } = useVariables();
+  // StellarByte: YOUTUBE_CLIENT_ID also drives Google login; hide it unless
+  // GOOGLE_LOGIN_ENABLED=true, and drop the social block when nothing is left.
+  const showSocial =
+    !isGeneral ||
+    genericOauth ||
+    !!googleLoginEnabled ||
+    !!appleClientId ||
+    !!neynarClientId ||
+    billingEnabled;
   const resolver = useMemo(() => {
     return classValidatorResolver(LoginUserDto);
   }, []);
@@ -75,30 +85,34 @@ export function Login() {
               {t('sign_in', 'Sign In')}
             </h1>
           </div>
-          <div className="text-[14px] mt-[32px] mb-[12px]">
-            {t('continue_with', 'Continue With')}
-          </div>
-          <div className="flex flex-col">
-            {isGeneral && genericOauth ? (
+          {showSocial && (
+            <div className="text-[14px] mt-[32px] mb-[12px]">
+              {t('continue_with', 'Continue With')}
+            </div>
+          )}
+          <div className={`flex flex-col${showSocial ? '' : ' mt-[32px]'}`}>
+            {!showSocial ? null : isGeneral && genericOauth ? (
               <OauthProvider />
             ) : !isGeneral ? (
               <GithubProvider />
             ) : (
               <div className="gap-[8px] flex">
-                <GoogleProvider />
+                {!!googleLoginEnabled && <GoogleProvider />}
                 {!!appleClientId && <AppleProvider />}
                 {!!neynarClientId && <FarcasterProvider />}
                 {billingEnabled && <WalletProvider />}
               </div>
             )}
-            <div className="h-[20px] mb-[24px] mt-[24px] relative">
-              <div className="absolute w-full h-[1px] bg-fifth top-[50%] -translate-y-[50%]" />
-              <div
-                className={`absolute z-[1] justify-center items-center w-full start-0 -top-[4px] flex`}
-              >
-                <div className="px-[16px]">{t('or', 'or')}</div>
+            {showSocial && (
+              <div className="h-[20px] mb-[24px] mt-[24px] relative">
+                <div className="absolute w-full h-[1px] bg-fifth top-[50%] -translate-y-[50%]" />
+                <div
+                  className={`absolute z-[1] justify-center items-center w-full start-0 -top-[4px] flex`}
+                >
+                  <div className="px-[16px]">{t('or', 'or')}</div>
+                </div>
               </div>
-            </div>
+            )}
             <div className="flex flex-col gap-[12px]">
               <div className="text-textColor">
                 <Input
