@@ -43,7 +43,7 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 
 ## 3. 部署 / 更新镜像 tag
 
-tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复).
+tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管).
 
 ```bash
 # 0. 本机: 打 tag 推送, 等 CI "Build StellarByte image" 成功
@@ -70,7 +70,9 @@ worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --
 
 ## 4. 上游跟进
 
-按 [redeploy-spec.md](redeploy-spec.md) 第 4 节 (fetch tag -> `sync/<tag>` 分支 cherry-pick L1/L1' -> `node scripts/brand/apply-brand.mjs --check` -> CI + 本机 compose 冒烟 -> 合入 `stellarbyte` 打 tag -> 本文第 3 节上线). 本机试跑: `deploy/contabo/docker-compose.local.yml` (子网 `STELLARBYTE_SUBNET=172.31.250.0/24`, 本机 172.30 已被占用).
+按 [redeploy-spec.md](redeploy-spec.md) 第 4 节 (fetch tag -> `sync/<tag>` 分支 cherry-pick L1/L1' -> `node scripts/brand/apply-brand.mjs --check` -> CI + 本机 compose 冒烟 -> 合入 `stellarbyte`, 更新根目录 `UPSTREAM_BASE`, 打 tag -> 本文第 3 节上线).
+
+新版本发现: `.github/workflows/upstream-release-watch.yml` 每周一比对上游最新 release 与 `UPSTREAM_BASE`, 有新版时开 issue. GitHub 只从**默认分支**运行定时 workflow (手动 Run 也要求文件在默认分支); 远端默认分支仍是 `main`, 所以在默认分支改为 `stellarbyte` (spec 第 9 节, 待 Harrison 决定) 前它不会运行, 期间人工核对 `gh api repos/gitroomhq/postiz-app/releases/latest --jq .tag_name`. 本机试跑: `deploy/contabo/docker-compose.local.yml` (子网 `STELLARBYTE_SUBNET=172.31.250.0/24`, 本机 172.30 已被占用).
 
 ## 5. 回滚
 
@@ -134,7 +136,7 @@ docker compose up -d
 - 站点 `stellarpostiz` (字母序在 `listmonk` 之后, 不改变兜底站点); `client_max_body_size 100m`; WebSocket upgrade; X-Forwarded-Proto=http 时 301 到 https. 改动后 `nginx -t && systemctl reload nginx`, 并确认 listmonk-api / smtp-admin 行为不变.
 - 证书 `/etc/ssl/certs/origin.crt` 是**自签名** (不是 Cloudflare Origin CA), 所以 Cloudflare SSL 模式**必须保持 Full, 不得改 Full (strict)**, 否则全部站点 526.
 - DNS: proxied A `app` -> 161.97.184.77; `media` 为 R2 自定义域. 台账 `STELLAR INFRA/DEPLOY/cloudflare/usage-by-project.md`.
-- Cloudflare 会自动注入 `static.cloudflareinsights.com` (zone RUM), 属已知第三方请求.
+- Cloudflare 会自动注入 `static.cloudflareinsights.com` (zone RUM), 是 r5 之后唯一已知的第三方请求 (Stripe.js 只在配置了 Stripe key 时加载, 国旗图标自托管于 `/icons/flags/`).
 
 ## 10. R2
 
@@ -166,7 +168,7 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 ### 12.2 社媒账号授权
 
 - 一律在 StellarByte UI "Add Channel" 走 OAuth (旧 `platforms/pinterest` 授权/刷新工具已废弃, D14). 回调 `https://app.stellarbyte.ca/integrations/social/<provider>`.
-- **Pinterest**: 每个账号必须在它自己的 HubStudio 环境里授权 (BW 条目的 "Browser ID" = HubStudio containerCode), 不得在本机浏览器混登. 授权前先在该环境确认 pinterest.com 当前登录的就是目标账号 (头像 / 用户名与 `platforms/pinterest/account-status.md` 一致), 再在该环境打开 StellarByte 登录并 Add Channel. 授权后核对 UI 显示的用户名.
+- **Pinterest**: 逐账号操作清单 (授权前置条件, 身份核对, 回填项) 见 `STELLAR INFRA/platforms/pinterest/authorization-checklist.md`; 下面是要点. 每个账号必须在它自己的 HubStudio 环境里授权 (BW 条目的 "Browser ID" = HubStudio containerCode), 不得在本机浏览器混登. 授权前先在该环境确认 pinterest.com 当前登录的就是目标账号 (头像 / 用户名与 `platforms/pinterest/account-status.md` 一致), 再在该环境打开 StellarByte 登录并 Add Channel. 授权后核对 UI 显示的用户名.
 - token 刷新: Temporal `refreshTokenWorkflow` 对设了 `refreshCron` 的 provider (Pinterest 自 r4 起, 以及 Threads / Instagram standalone) 在 access token 到期时主动刷新; 其余 provider (LinkedIn / YouTube 等) 在发帖时按需刷新. 失败时 integration 标 `refreshNeeded`, UI 提示重连.
 - 授权后回填: Windmill 变量 `publish_accounts` 与 Supabase `pinterest_publisher.accounts` 的 integration_id; `STELLAR CONFIG/StellarByteSaaS/accounts.md`.
 
