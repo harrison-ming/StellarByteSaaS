@@ -84,11 +84,15 @@ export const SettingsPopup: FC<{
   }, []);
 
   const t = useT();
+  // StellarByte (D10): /user/self returns `admin` (isSuperAdmin), not part of the context type.
+  const isInstanceAdmin = !!(user as { admin?: boolean } | undefined)?.admin;
   const list = useMemo(() => {
     const arr = [];
     arr.push({ tab: 'global_settings', label: t('global_settings', 'Global Settings') });
     // Populate tabs based on user permissions
-    if (user?.tier?.public_api && isGeneral && showLogout) {
+    // StellarByte (D10): developer / public API / MCP pages are hidden from
+    // regular users; only the instance super-admin can open them.
+    if (isInstanceAdmin && user?.tier?.public_api && isGeneral && showLogout) {
       arr.push({ tab: 'agents', label: t('agents_dev', 'Agents / Dev') });
     }
     if (user?.tier?.team_members && isGeneral && user?.role !== 'USER') {
@@ -108,10 +112,12 @@ export const SettingsPopup: FC<{
     }
     arr.push({ tab: 'integrations', label: t('integrations', 'Integrations') });
     arr.push({ tab: 'plugs', label: t('plugs', 'Plugs') });
-    arr.push({ tab: 'apps', label: t('apps', 'Apps') });
+    if (isInstanceAdmin) {
+      arr.push({ tab: 'apps', label: t('apps', 'Apps') });
+    }
 
     return arr;
-  }, [user, isGeneral, showLogout, t]);
+  }, [user, isInstanceAdmin, isGeneral, showLogout, t]);
 
   const [tab, setTab] = useState(() => {
     const requested = url.get('tab');

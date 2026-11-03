@@ -36,9 +36,9 @@ export const OnboardingModal: FC<OnboardingModalProps> = ({ onClose }) => {
 
   const steps = useMemo(
     () => [
+      // StellarByte (D10): the "Connect Agents" (Postiz MCP / CLI / API) and
+      // "Watch Tutorial" (Postiz video) steps are hidden.
       t('connect_channels', 'Connect Channels'),
-      t('connect_agents', 'Connect Agents'),
-      t('watch_tutorial', 'Watch Tutorial'),
     ],
     [t]
   );
@@ -103,8 +103,8 @@ export const OnboardingModal: FC<OnboardingModalProps> = ({ onClose }) => {
             {/* Step content */}
             {step === 1 && (
               <OnboardingStep1
-                onNext={() => setStep(2)}
-                onSkip={() => setStep(2)}
+                onNext={onClose}
+                onSkip={onClose}
               />
             )}
             {step === 2 && (
