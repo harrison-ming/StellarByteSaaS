@@ -21,6 +21,10 @@ import { ModalWrapperComponent } from '../new-launch/modal.wrapper.component';
 import clsx from 'clsx';
 countries.registerLocale(countriesEn);
 
+// Self-hosted flag-icons SVGs (public/icons/flags) instead of the library's
+// default cdn.jsdelivr.net source; /icons/ is exempt from the auth proxy
+const FLAG_CDN_URL = '/icons/flags/4x3/';
+
 const getCountryCodeForFlag = (languageCode: string) => {
   // For multi-region languages, here are some common defaults
   if (languageCode === 'en') return 'GB';
@@ -106,6 +110,7 @@ export const ChangeLanguageComponent = () => {
             <ReactCountryFlag
               countryCode={getCountryCodeForFlag(language)}
               svg
+              cdnUrl={FLAG_CDN_URL}
               style={{
                 width: '1.5em',
                 height: '1.5em',
@@ -140,6 +145,7 @@ export const LanguageComponent = () => {
       <ReactCountryFlag
         countryCode={getCountryCodeForFlag(currentLanguage)}
         svg
+        cdnUrl={FLAG_CDN_URL}
         style={{
           width: '22px',
           height: '22px',

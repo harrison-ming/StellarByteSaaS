@@ -4,7 +4,9 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+// `pure` defers injecting Stripe.js until loadStripe() runs (see use.payment.action)
+import { loadStripe } from '@stripe/stripe-js/pure';
+import type { Stripe } from '@stripe/stripe-js';
 import { OrganizationSelector } from '@gitroom/frontend/components/layout/organization.selector';
 import { LanguageComponent } from '@gitroom/frontend/components/layout/language.component';
 import { AttachToFeedbackIcon } from '@gitroom/frontend/components/new-layout/sentry.feedback.component';
@@ -65,6 +67,11 @@ export const FirstBillingComponent = () => {
   const [fbp] = useCookie('_fbp', '');
 
   useEffect(() => {
+    // no publishable key = billing not configured: never contact Stripe
+    if (!stripeClient) {
+      setStripeFailed(true);
+      return;
+    }
     const stripePromise = loadStripe(stripeClient);
     stripePromise.catch(() => setStripeFailed(true));
     setStripe(stripePromise);

@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+// `pure` defers injecting Stripe.js until loadStripe() runs; the default
+// entry injects it on import, i.e. on every page that bundles billing code
+import { loadStripe } from '@stripe/stripe-js/pure';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
 
 export const usePaymentAction = () => {
@@ -9,6 +11,9 @@ export const usePaymentAction = () => {
     // Consuming the PaymentIntent client_secret with the publishable key is
     // Stripe's intended flow: https://docs.stripe.com/api/payment_intents/object#payment_intent_object-client_secret
     async (clientSecret: string) => {
+      if (!stripeClient) {
+        return { error: 'Billing is not configured' };
+      }
       try {
         const stripe = await loadStripe(stripeClient);
         const { error } = await stripe!.handleNextAction({ clientSecret });
