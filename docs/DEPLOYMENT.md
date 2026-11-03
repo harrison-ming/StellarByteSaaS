@@ -1,3 +1,5 @@
+> **已过时**: 本文描述 107 Mac + Cloudflare Tunnel 时代的部署. 现行规范见 [redeploy-spec.md](redeploy-spec.md), 本文将在其阶段 5 改写为 Contabo runbook.
+
 # StellarByte Deployment Guide
 
 Complete guide for deploying StellarByte to production.

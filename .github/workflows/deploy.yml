@@ -1,12 +1,13 @@
-name: Deploy to 107
+name: Deploy to 107 (DECOMMISSIONED)
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   deploy:
+    # Production was decommissioned on 2026-09-08. Keep this guard in the
+    # repository so re-enabling the workflow cannot redeploy it accidentally.
+    if: ${{ false }}
     name: Deploy StellarByte to 107 Server
     runs-on: ubuntu-latest
     

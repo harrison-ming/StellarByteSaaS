@@ -1,7 +1,14 @@
 # StellarByteSaaS
 
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
-> 最后更新: 2026-03-07
+> 最后更新: 2026-11-03
+
+> **重新上线中 (2026-11-03 起)**: 按 [redeploy-spec.md](redeploy-spec.md) 执行, 下文架构与地址为退役前状态, 阶段 5 统一更新.
+
+> **已退役（2026-09-08）**：生产容器、Redis volume、运行镜像及服务器
+> `.env` 已删除；`app.stellarbyte.ca` 的 Cloudflare DNS 与专用 Nginx 路由
+> 已移除；Supabase `postiz` schema 已删除。本目录仅保留归档资料；GitHub
+> 生产部署工作流已禁用，Windmill 中专用 API secret 已删除。
 
 ## 概述
 

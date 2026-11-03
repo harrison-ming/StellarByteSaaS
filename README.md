@@ -1,5 +1,11 @@
 # StellarByte
 
+> **DECOMMISSIONED (2026-09-08):** The production service at
+> `app.stellarbyte.ca` has been shut down. Its containers, Redis volume, runtime
+> images, production `.env`, Cloudflare DNS record, dedicated Nginx route, and
+> Supabase `postiz` schema were removed. The source repository is retained as an
+> archive; the production deploy workflow is disabled.
+
 <div align="center">
 
 ![StellarByte Logo](apps/frontend/public/logo.svg)
@@ -115,7 +121,7 @@ To enable social media integrations, obtain API keys from respective platforms a
 
 1. **Setup SSH access** from GitHub Actions
 2. **Configure GitHub Secrets**:
-   - `SSH_HOST`: 192.168.1.107
+   - `SSH_HOST`: 192.168.1.94
    - `SSH_USER`: ming
    - `SSH_PRIVATE_KEY`: Your SSH private key
 

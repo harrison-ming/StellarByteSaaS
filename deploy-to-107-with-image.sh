@@ -4,7 +4,7 @@
 #
 # Usage:
 #   1. Build image locally and save: docker save stellarbyte:latest | gzip > stellarbyte-image.tar.gz
-#   2. Transfer to 107: scp stellarbyte-image.tar.gz ming@192.168.1.107:/tmp/
+#   2. Transfer to 107: scp stellarbyte-image.tar.gz ming@192.168.1.94:/tmp/
 #   3. Run this script on 107
 
 set -e
@@ -36,7 +36,7 @@ else
   echo "✗ Image file not found at /tmp/stellarbyte-image.tar.gz"
   echo "Please transfer the image first:"
   echo "  docker save stellarbyte:latest | gzip > stellarbyte-image.tar.gz"
-  echo "  scp stellarbyte-image.tar.gz ming@192.168.1.107:/tmp/"
+  echo "  scp stellarbyte-image.tar.gz ming@192.168.1.94:/tmp/"
   exit 1
 fi
 echo ""
