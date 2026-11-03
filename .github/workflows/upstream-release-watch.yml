@@ -1,0 +1,73 @@
+---
+# Weekly check for a newer upstream Postiz release (docs/redeploy-spec.md section 4).
+# Base version = repo file UPSTREAM_BASE (bump it when stellarbyte is rebased onto a new tag).
+# Note: GitHub runs `schedule` only from the default branch, so the cron is live
+# only while this file exists on the default branch (see docs/DEPLOYMENT.md section 4).
+name: "Upstream release watch"
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-release-watch
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: gitroomhq/postiz-app
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compare latest upstream release with UPSTREAM_BASE
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BASE="$(tr -d '[:space:]' < UPSTREAM_BASE)"
+          LATEST="$(gh api "repos/${UPSTREAM_REPO}/releases/latest" --jq .tag_name)"
+          URL="$(gh api "repos/${UPSTREAM_REPO}/releases/latest" --jq .html_url)"
+          echo "base=${BASE} latest=${LATEST}"
+          if [ -z "$LATEST" ] || [ "$LATEST" = "$BASE" ]; then
+            echo "Up to date."
+            exit 0
+          fi
+          NEWEST="$(printf '%s\n%s\n' "${BASE#v}" "${LATEST#v}" | sort -V | tail -n1)"
+          if [ "$NEWEST" != "${LATEST#v}" ]; then
+            echo "Latest upstream release ${LATEST} is not newer than ${BASE}."
+            exit 0
+          fi
+          TITLE="上游新版本 ${LATEST}: 按 redeploy-spec 第 4 节跟进"
+          EXISTING="$(gh issue list -R "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json title --jq "[.[] | select(.title == \"${TITLE}\")] | length")"
+          if [ "$EXISTING" != "0" ]; then
+            echo "Open issue already exists: ${TITLE}"
+            exit 0
+          fi
+          BODY_FILE="$(mktemp)"
+          cat > "$BODY_FILE" <<BODY
+          上游 \`${UPSTREAM_REPO}\` 发布了 **${LATEST}** (当前基线 \`${BASE}\`, 记录在仓库根目录 \`UPSTREAM_BASE\`).
+
+          Release: ${URL}
+
+          按 [docs/redeploy-spec.md](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/stellarbyte/docs/redeploy-spec.md) 第 4 节跟进:
+
+          - [ ] \`git fetch upstream --tags\`, 读 release notes, 标出架构变化 (Temporal 级别的重构需人工评估)
+          - [ ] 从 \`${LATEST}\` 开分支 \`sync/${LATEST}\`, 按顺序 cherry-pick L1 / L1' 补丁; 已被上游修复的 L1' 丢弃
+          - [ ] \`node scripts/brand/apply-brand.mjs --check\`: 全部规则命中数 > 0, 残留扫描通过
+          - [ ] CI 构建通过, 本机 compose 冒烟 (spec 8.2) 通过
+          - [ ] 合入 \`stellarbyte\`, 更新 \`UPSTREAM_BASE\`, 打 tag \`stellarbyte-${LATEST}\`, CI 推镜像
+          - [ ] 升级前手动备份, Contabo 按 docs/DEPLOYMENT.md 第 3 节更新镜像 tag 并验收
+          - [ ] 回滚预案: 上一版镜像 tag + 升级前 pg_dump (spec 4 第 6 步)
+          BODY
+          gh issue create -R "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$BODY_FILE"
