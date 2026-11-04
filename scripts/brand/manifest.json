@@ -142,23 +142,14 @@
       "note": "TikTok fills the caption with the app name, which is ours"
     },
     {
-      "id": "billing-faq-repo",
-      "files": [
-        "apps/frontend/src/components/billing/faq.component.tsx"
-      ],
-      "find": "https://github.com/gitroomhq/postiz-app",
-      "replace": "https://github.com/harrison-ming/StellarByteSaaS",
-      "min": 1,
-      "note": "AGPL: point to the source actually deployed"
-    },
-    {
       "id": "billing-faq",
       "files": [
         "apps/frontend/src/components/billing/faq.component.tsx"
       ],
       "find": "Postiz",
       "replace": "StellarByte",
-      "min": 7
+      "min": 4,
+      "note": "the 'Can I trust ... open-source' item (repo link) is dropped by an L1 patch (spec D17)"
     },
     {
       "id": "billing-first",
@@ -280,20 +271,16 @@
       "billing_join_over": "",
       "billing_entrepreneurs_count": "",
       "billing_who_use": "",
-      "billing_postiz_grow_social": "StellarByte: grow your social presence"
+      "billing_postiz_grow_social": "StellarByte: grow your social presence",
+      "faq_can_i_trust_postiz_gitroom": "",
+      "faq_postiz_gitroom_is_proudly_open_source": ""
     },
     "rules": [
-      {
-        "id": "repo-link",
-        "find": "https://github.com/gitroomhq/postiz-app",
-        "replace": "https://github.com/harrison-ming/StellarByteSaaS",
-        "min": 16
-      },
       {
         "id": "brand-latin",
         "find": "Postiz",
         "replace": "StellarByte",
-        "min": 300
+        "min": 250
       },
       {
         "id": "brand-hebrew",

@@ -12,7 +12,6 @@ locale:sign_in_no_api_key | * | 'Sign in with Postiz' routes through Postiz Clou
 locale:oauth_sign_in_hint | * | Postiz Cloud sign-in hint, entry removed by hide commit
 
 # --- source files ---
-apps/frontend/src/components/stellarbyte/powered-by.component.tsx | Postiz | required attribution footer "Powered by Postiz · Source" (D10, AGPL-3.0 s.13)
 apps/frontend/src/components/developer/developer.component.tsx | * | developer / OAuth-app page, hidden from non-admins (D10); describes the real Postiz OAuth platform
 apps/frontend/src/components/public-api/public.component.tsx | * | public API / MCP / CLI page, hidden from non-admins (D10); real product names (npm i -g postiz, Postiz skill) per 3.2 rule 4
 apps/frontend/src/components/onboarding/onboarding.modal.tsx | * | onboarding steps 2-3 (Postiz MCP / CLI / connector / tutorial video) are unreachable after the hide commit

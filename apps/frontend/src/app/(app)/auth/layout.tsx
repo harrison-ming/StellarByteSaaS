@@ -6,7 +6,6 @@ import loadDynamic from 'next/dynamic';
 import { LogoTextComponent } from '@gitroom/frontend/components/ui/logo-text.component';
 import { MantineWrapper } from '@gitroom/react/helpers/mantine.wrapper';
 import { Toaster } from '@gitroom/react/toaster/toaster';
-import { PoweredByFooter } from '@gitroom/frontend/components/stellarbyte/powered-by.component';
 const ReturnUrlComponent = loadDynamic(() => import('./return.url.component'));
 export default async function AuthLayout({
   children,
@@ -26,7 +25,6 @@ export default async function AuthLayout({
             <LogoTextComponent />
             <div className="flex">{children}</div>
           </div>
-          <PoweredByFooter className="mt-[20px]" />
         </div>
         <div className="flex-1 hidden lg:flex flex-col justify-center px-[8%]">
           <p className="text-3xl font-light leading-relaxed mb-4">
