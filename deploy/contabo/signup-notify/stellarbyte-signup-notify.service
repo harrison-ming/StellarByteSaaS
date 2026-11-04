@@ -1,0 +1,21 @@
+# Template (docs/redeploy-spec.md D23, runbook DEPLOYMENT.md section 7).
+# Posts new app.stellarbyte.ca registrations to Discord #stellarbyte-signups. A failing run
+# (DB unreachable, webhook rejected) alerts #errors once via notify-command-status.sh.
+[Unit]
+Description=Notify Discord about new StellarByte registrations
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/notify-command-status.sh --name stellarbyte-signup-notify -- /usr/local/sbin/stellarbyte-signup-notify.sh run
+User=root
+Group=root
+UMask=0077
+StateDirectory=stellarmail-command-status stellarbyte-signup-notify
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+Nice=10

@@ -1,0 +1,12 @@
+# Every 5 minutes.
+[Unit]
+Description=Notify Discord about new StellarByte registrations every 5 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/5:00 UTC
+Persistent=true
+RandomizedDelaySec=20
+Unit=stellarbyte-signup-notify.service
+
+[Install]
+WantedBy=timers.target

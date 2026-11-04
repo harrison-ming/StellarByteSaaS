@@ -38,7 +38,9 @@ services:
       BACKEND_INTERNAL_URL: http://localhost:3000
       IS_GENERAL: 'true'
       RUN_CRON: 'true'
-      DISABLE_REGISTRATION: 'true'
+      # Open registration since r6 (spec D21); set DISABLE_REGISTRATION="true" in .env
+      # and recreate the app to close it again. Defaults to closed when unset.
+      DISABLE_REGISTRATION: ${DISABLE_REGISTRATION:-true}
       # The shared .env also feeds compose interpolation; keep the other
       # services' secrets out of the app process environment.
       POSTGRES_SUPERUSER_PASSWORD: ''
