@@ -42,7 +42,7 @@ status: active
 | D17 | app 前端去掉全部 "Powered by Postiz · Source" 署名与源码链接 (登录页 / 应用内页脚组件删除; 计费 FAQ "Can I trust ... open-source" 条目删除, 其 16 种 locale 值由 L2 清空); 取代 D10 的页脚部分 (r6) | Harrison 2026-11-04 决定: app 界面不放第三方署名 |
 | D18 | AGPL-3.0 源码声明改放公开条款页 `https://stellarbyte.ca/terms/` (英文一段: app 基于 Postiz, AGPL-3.0, 修改版完整源码地址 `https://github.com/harrison-ming/StellarByteSaaS`), app 界面不再放 | AGPL-3.0 第 13 条要求向网络用户提供源码获取途径; 条款页是注册时链接的公开页面 |
 | D19 | Google 登录只用独立 OAuth client (GCP 项目 `stellarbyte-scheduler-login`, 同意屏幕应用名 "StellarByte", External, 仅 `userinfo.email` + `userinfo.profile`); 环境变量 `GOOGLE_LOGIN_CLIENT_ID` / `GOOGLE_LOGIN_CLIENT_SECRET`, **不回退** `YOUTUBE_*`; 回调仍是上游默认 `${FRONTEND_URL}/integrations/social/youtube` + `state=login`; 按钮仍受 `GOOGLE_LOGIN_ENABLED` 控制 (r6) | 与 stellar-dev 项目的敏感 scope 与品牌隔离 (同 moveset-io 的做法), 登录同意屏幕显示 StellarByte |
-| D20 | 按已验证邮箱关联账号: OAuth 登录找不到 (providerId, provider) 对应用户时, 若 provider 报告邮箱已验证 (`getUser` 返回 `emailVerified: true`, 目前只有 Google 设置) 且存在同邮箱的本地账号, 直接登录该账号; 不写 `providerName` / `providerId`, 不改已存字段含义; 其余情况走原注册路径 (r6) | 同一人先邮箱注册后用 Google 登录时不产生第二个组织 |
+| D20 | 按已验证邮箱关联账号: OAuth 登录找不到 (providerId, provider) 对应用户时, 若 provider 报告邮箱已验证 (`getUser` 返回 `emailVerified: true`, 目前只有 Google 设置) 且存在同邮箱的**已激活**本地账号, 直接登录该账号 (未激活的不关联, 防止他人先用该邮箱抢注后接管; Google token 须经 `getTokenInfo` 校验 `aud` 为本 client); 不写 `providerName` / `providerId`, 不改已存字段含义; 其余情况走原注册路径 (r6) | 同一人先邮箱注册后用 Google 登录时不产生第二个组织 |
 | D21 | 开放注册 `DISABLE_REGISTRATION=false` (取代 D11); 本地邮箱注册仍须邮件激活; 需要时设回 `true` 并重建 app 即可快速关闭 (runbook 第 12 节) (r6) | Harrison 2026-11-04 决定. 发信信誉风险由激活邮件 + `/api/auth/*` 登录限速 + D23 注册通知人工盯防 |
 | D22 | 删除现有唯一账号 (LOCAL) 及其组织与全部组织数据, 删除前 `pg_dump` 留档; Harrison 用新流程自行重新注册; 不预建用户. 之后: 新用户设 `isSuperAdmin=true`, 轮换组织 API key 写回 Windmill `u/harrisonvancouver/stellarbyte_api_key` (旧 key 随旧组织失效) (r6) | 单用户, 不要求向后兼容 |
 | D23 | 每次新注册发 Discord 通知 (时间, 邮箱, 组织名, provider): Contabo 宿主 systemd timer 每 5 分钟只读查询 Postgres 新用户 (水位线), 不改 app 代码; webhook/token 只放服务器 root-only env 文件 (r6) | 开放注册后需要人工知道谁注册了; 宿主脚本不进上游补丁, 跟进成本为零 |
@@ -180,6 +180,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 | 5 | 完成 | runbook [DEPLOYMENT.md](DEPLOYMENT.md) 改写, `config-readme.md` / README 更新, 第 10 节跨仓库文档同步 (各仓库本地 commit) |
 | 跟进 C (主机) | 完成 | DOCKER-USER 规则重放幂等; 清理遗留镜像与匿名卷 (根盘 31% → 15%); Stalwart 冷备份上线 (本地 + 私有 R2 `stalwart-backups`, 停机约 8 秒) 并恢复演练 41 账号 / 16 域名一致 |
 | 跟进 E (加固与演练) | 完成 | nginx 安全头 + 登录限速 (连续错误密码第 6 次起 429, 约 1 分钟恢复; listmonk-api / smtp-admin 与上线前快照一致); 两个备份 watchdog 告警演练 (ALERT + RECOVERY 到 #errors); `host-resource-check.timer` 上线并 self-test; 从 R2 下载的离机恢复演练 88 表一致; 外部安全检查见第 11 节. stalwart-health 前后 16/16 |
+| r6 (2026-11-04, D17-D23) | 完成 | commit 5ad33c16 (去页脚 / FAQ 开源条目) / e61ef9ef (Google 独立 client + `getTokenInfo` 校验 aud + 已激活本地账号按已验证邮箱关联) / 9e4ed163 (compose 注册开关 + 注册通知 timer); tag `stellarbyte-v2.25.3-r6`, 镜像 CI run 41865783123 成功 (GitHub Actions 部分故障, 排队约 25 分钟); `apply-brand --check` 32/32, 残留 0, 构建产物无 gitroomhq / 源码链接. 本机 compose: 无页脚, 注册表单可见, 第二个组织邮箱注册成功, Google 按钮随开关显示/隐藏且跳到新 client. 生产: 上线前 pg_dump (`/root/r6-predelete-20261104/`) + 例行备份 success; app healthy, worker 在线; `/api/auth/oauth/GOOGLE` client_id 前缀 `344812424356`; 旧账号与组织删除 (单事务 TRUNCATE 4 表级联, 前后 88 表结构不变, 删后全 0, `prisma db push` already in sync; 旧组织 1 个 Media 行对应的 R2 对象留在 `stellar-postiz`, 未删); 注册通知端到端: 浏览器注册测试账号 -> 约 20 秒后 `#stellarbyte-signups` 收到消息 -> 测试账号再删除, 计数回 0; 条款页第 16 节上线 (Hugo 仓库 `host/StellarByte` 06ebd04). stalwart-health 前后 16/16. 回滚: `.env.pre-r6` + r5 镜像 |
 | 跟进 A (r5 等) | 完成 | r5 (commit 49d517da, tag `stellarbyte-v2.25.3-r5`): Stripe.js 改 `pure` 入口且无 key 不加载, 国旗图标自托管; `apply-brand --check` 34/34; 镜像 CI run 41733918707 成功; 上线前备份 success, app healthy, worker 在线; 登录 + launches + settings + 语言弹窗全程无 stripe / jsdelivr 请求 (仅余 cloudflareinsights). 上游监视 workflow + `UPSTREAM_BASE` (f13a4998), 依赖默认分支 (第 4 / 9 节). 上游 PR 补丁与草稿已备, 未提交 (第 9 节) |
 
 ## 8. 验收标准
@@ -188,7 +189,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 
 - 主线 `stellarbyte` = `v2.25.3` + 补丁 commit, `git log v2.25.3..stellarbyte` 只有 StellarByte 补丁.
 - 品牌: 登录、注册、侧栏、页面标题、邮件、OAuth 授权页、onboarding 无 Postiz 字样 (白名单除外); 主色蓝; 无 Postiz 社会证明; app 前端无 "Powered by" 署名与源码链接 (D17), `https://stellarbyte.ca/terms/` 有 AGPL 源码声明 (D18).
-- CI 构建成功并推送 `ghcr.io/harrison-ming/stellarbyte-app:<tag>` (amd64, 公开包). 已推送的 tag 不改写, 修订用 `-rN`: 首个 tag `stellarbyte-v2.25.3` 推旧私有包 `stellarbyte` 无权限失败; `-r2` 首个可用镜像 (改推公开包 `stellarbyte-app`); `-r3` 隐藏 Google 登录按钮; `-r4` Pinterest refresh token 修复; `-r5` 无计费不加载 Stripe.js + 国旗图标自托管 (当前线上).
+- CI 构建成功并推送 `ghcr.io/harrison-ming/stellarbyte-app:<tag>` (amd64, 公开包). 已推送的 tag 不改写, 修订用 `-rN`: 首个 tag `stellarbyte-v2.25.3` 推旧私有包 `stellarbyte` 无权限失败; `-r2` 首个可用镜像 (改推公开包 `stellarbyte-app`); `-r3` 隐藏 Google 登录按钮; `-r4` Pinterest refresh token 修复; `-r5` 无计费不加载 Stripe.js + 国旗图标自托管; `-r6` 去掉 app 内署名/源码链接, 独立 Google 登录 client + 已验证邮箱关联, 开放注册 (当前线上, D17-D23).
 
 ### 8.2 本机冒烟
 

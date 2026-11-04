@@ -31,19 +31,21 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 
 | 位置 | 内容 |
 |---|---|
-| 仓库 `deploy/contabo/` | `docker-compose.yml`, `docker-compose.local.yml` (本机试跑 override), `.env.example`, `postgres/init/10-databases.sh`, `temporal/dynamicconfig/`, `nginx/stellarpostiz`, `firewall/`, `backup/` (脚本 + systemd 单元模板) |
+| 仓库 `deploy/contabo/` | `docker-compose.yml`, `docker-compose.local.yml` (本机试跑 override), `.env.example`, `postgres/init/10-databases.sh`, `temporal/dynamicconfig/`, `nginx/stellarpostiz`, `firewall/`, `backup/` (脚本 + systemd 单元模板), `signup-notify/` (新注册 Discord 通知, r6) |
 | 服务器 `/opt/stellarpostiz/` | `docker-compose.yml`, `.env` (600), `postgres/init/`, `temporal/` (均从仓库复制), `backups/` (700), `decommission-20260908/` (旧 nginx 站点存档) |
-| 服务器 `/usr/local/sbin/` | `stellarbyte-backup.sh`, `stellarbyte-docker-user-fw.sh`, 共用 `notify-command-status.sh` (Discord 告警), 主机级 `host-resource-check.sh` (源码 `STELLAR INFRA/machines/contabo/host-monitor/`) |
-| 服务器 `/etc/systemd/system/` | `stellarbyte-backup.{service,timer}`, `stellarbyte-backup-watchdog.{service,timer}`, `stellarbyte-docker-user-fw.service`; 主机级 `host-resource-check.{service,timer}` |
+| 服务器 `/usr/local/sbin/` | `stellarbyte-backup.sh`, `stellarbyte-docker-user-fw.sh`, `stellarbyte-signup-notify.sh`, 共用 `notify-command-status.sh` (Discord 告警), 主机级 `host-resource-check.sh` (源码 `STELLAR INFRA/machines/contabo/host-monitor/`) |
+| 服务器 `/etc/systemd/system/` | `stellarbyte-backup.{service,timer}`, `stellarbyte-backup-watchdog.{service,timer}`, `stellarbyte-docker-user-fw.service`, `stellarbyte-signup-notify.{service,timer}`; 主机级 `host-resource-check.{service,timer}` |
 | 服务器 `/etc/nginx/sites-available/stellarpostiz` | 站点 (symlink 到 sites-enabled) |
 | 服务器 `/root/.config/stellarbyte/r2-backup.env` (600) | 备份桶 R2 token |
+| 服务器 `/root/.config/stellarbyte/signup-notify.env` (600) | `#stellarbyte-signups` 频道 webhook (`DISCORD_WEBHOOK_URL`); 水位线在 `/var/lib/stellarbyte-signup-notify/watermark` |
 | 本机 `STELLAR CONFIG/StellarByteSaaS/.env.production` (600) | 生产 `.env` **主源**; 改动先改这里再同步到服务器 |
 | 本机 `STELLAR CONFIG/StellarByteSaaS/credentials.md` / `accounts.md` | 凭据索引 (无明文) / 组织与账号映射 |
-| Bitwarden | OAuth: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, Google/YouTube + 管理员登录 `cfc8d358-…` |
+| 本机 `STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json` (600) | Google 登录 client (GCP 项目 `stellarbyte-scheduler-login`, spec D19); 值已进 `.env` 的 `GOOGLE_LOGIN_CLIENT_ID/SECRET` |
+| Bitwarden | OAuth: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, YouTube `cfc8d358-…` (只用于频道授权); Google 登录 client 条目 `StellarByte Google OAuth - stellarbyte-scheduler-login` 待 Harrison 写入 |
 
 ## 3. 部署 / 更新镜像 tag
 
-tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管). **当前线上 r5, 回滚目标 r4** (服务器 `.env.pre-r5`, r4 镜像保留).
+tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管; r6 去掉 app 内署名/源码链接, 独立 Google 登录 client + 按已验证邮箱关联本地账号, 开放注册). **当前线上 r6, 回滚目标 r5** (服务器 `.env.pre-r6`, r5 镜像保留). 注意 r5 镜像的 Google 登录读 `YOUTUBE_CLIENT_*`, 回滚到 r5 时把 `GOOGLE_LOGIN_ENABLED` 设回 `false`.
 
 ```bash
 # 0. 本机: 打 tag 推送, 等 CI "Build StellarByte image" 成功
@@ -137,8 +139,21 @@ docker compose up -d
 | 外部存活 (`/auth/login` + `/api/` 每 5 分钟, 失败重试一次, 只在状态变化时发) | Windmill `u/harrisonvancouver/ops/stellarbyte_liveness_check` + schedule `ops/stellarbyte_liveness_schedule`; 源码 `host/Windmill/ops/stellarbyte_liveness_check.py` | Discord #errors (DOWN / RECOVERED) |
 | 备份 / watchdog | systemd 单元 (第 6 节); Stalwart 备份同理 (`stalwart-backup*.timer`, 见 INFRA vps 文档) | Discord #errors (ALERT / RECOVERY, 只在状态变化时发) |
 | 容器健康 | compose healthcheck + `restart: unless-stopped` | 无主动告警, 由外部存活覆盖 |
+| 新注册通知 (每 5 分钟, 只读查询 `User` 表新行, 按水位线逐条发: 时间 / 邮箱 / 组织 / provider) | `stellarbyte-signup-notify.timer` (源码 `deploy/contabo/signup-notify/`); 看水位线与待发数 `stellarbyte-signup-notify.sh status` | Discord `#stellarbyte-signups` (Ops 分类, webhook); 脚本失败经 `notify-command-status.sh` 发 #errors (`stellarbyte-signup-notify`) |
 | 主机资源 (每 10 分钟: 根盘 > 85%, MemAvailable < 12%, swap 用量 > 1G, 新的内核 OOM kill) | `host-resource-check.timer`; 看数值 `host-resource-check.sh status` | Discord #errors (`host-resource-disk/-mem/-swap/-oom`, 状态变化时发) |
 | 容器资源 | `docker stats --no-stream`; `free -h` | 人工; 常驻约 app 1.4G / temporal 0.2G / pg 0.2G |
+
+新注册通知安装 / 重装 (主机需有 `jq` `curl`; 2026-11-04 首次安装):
+
+```bash
+scp deploy/contabo/signup-notify/stellarbyte-signup-notify.{sh,service,timer} root@161.97.184.77:/root/
+ssh root@161.97.184.77 'cd /root && install -m 0700 stellarbyte-signup-notify.sh /usr/local/sbin/ \
+  && install -m 0644 stellarbyte-signup-notify.{service,timer} /etc/systemd/system/ && systemctl daemon-reload \
+  && /usr/local/sbin/stellarbyte-signup-notify.sh init && systemctl enable --now stellarbyte-signup-notify.timer'
+# webhook: /root/.config/stellarbyte/signup-notify.env (600) 一行 DISCORD_WEBHOOK_URL=..., 频道 #stellarbyte-signups
+#   (1567570707355803773, webhook 1567570734123843686, bot API 建). 丢失时用 bot token 在该频道重建 webhook.
+# 补发某时刻之后的注册: stellarbyte-signup-notify.sh init 'YYYY-MM-DD HH:MM:SS' (UTC), 下一轮 timer 发出.
+```
 
 告警演练 (不动备份数据): 用真实检查名临时缩短新鲜度窗口触发失败, 再跑正式单元恢复; #errors 应先后收到 ALERT 与 RECOVERY (2026-11-04 两个 watchdog 均已验证).
 
@@ -181,16 +196,26 @@ systemctl start stellarbyte-backup-watchdog.service                             
 
 ## 12. 管理员与账号授权
 
-### 12.1 首个管理员 (只在新库上做一次)
+### 12.1 注册与管理员
 
-`DISABLE_REGISTRATION=true` 仍允许第一个组织注册. 在服务器上对 `127.0.0.1:4007` 注册 (或浏览器注册), 之后注册接口返回 400 "Registration is disabled". 再授超管:
+- **注册开放** (r6 起, spec D21): `DISABLE_REGISTRATION="false"` (主源 `.env.production` 与服务器 `.env`; compose 用 `${DISABLE_REGISTRATION:-true}` 插值, 未设置时默认关闭). 本地邮箱注册须点激活邮件; Google 注册直接激活. 每个新注册约 5 分钟内发到 Discord `#stellarbyte-signups` (第 7 节).
+- **快速关闭注册** (遇到滥用 / 发信信誉告警): 两边 `.env` 改 `DISABLE_REGISTRATION="true"`, 然后 `cd /opt/stellarpostiz && docker compose up -d --no-deps app` (约 1-3 分钟 healthy). 关闭后已有用户照常登录, 新注册返回 400 "Registration is disabled" (库里已有组织时).
+- **管理员 (超管)**: 普通注册即可, 之后授超管 (可见 "Agents / Dev" 与 "Apps" 设置页, D10):
 
 ```bash
 docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
-  -c "UPDATE \"User\" SET activated = true, \"isSuperAdmin\" = true WHERE email = '<管理员邮箱>';"
+  -c "UPDATE \"User\" SET \"isSuperAdmin\" = true WHERE email = '<管理员邮箱>';"
 ```
 
-超管可见 "Agents / Dev" 与 "Apps" 设置页 (普通用户隐藏, D10). 组织 API key 在 Settings 里 Rotate, 新值写回 Windmill 变量 (第 1 节).
+组织 API key 在 Settings 里 Rotate, 新值写回 Windmill 变量 `u/harrisonvancouver/stellarbyte_api_key` (第 1 节). 2026-11-04 (r6) 旧账号与组织已删除 (D22: 删除前 dump `/root/r6-predelete-20261104/stellarbyte-predelete.dump`, 单事务 `TRUNCATE "Media", "UserOrganization", "Organization", "User" CASCADE`, 删后 88 表全 0), 旧 key 失效; Harrison 重新注册后须做上面两步. 旧组织上传过 1 个媒体, 其 R2 对象仍在 `stellar-postiz` (无 DB 引用, 未删).
+
+#### Google 登录 (r6, spec D19 / D20)
+
+- 独立 OAuth client `StellarByte App Login` (GCP 项目 `stellarbyte-scheduler-login`), 环境变量 `GOOGLE_LOGIN_CLIENT_ID` / `GOOGLE_LOGIN_CLIENT_SECRET` (取自 `STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json` 的 `.web.client_id` / `.web.client_secret`), 按钮开关 `GOOGLE_LOGIN_ENABLED="true"`. 不回退 `YOUTUBE_*`: 没配 client 时不要打开开关.
+- 回调沿用上游 `https://app.stellarbyte.ca/integrations/social/youtube` (`state=login` 区分登录与 YouTube 频道授权), 已在该 client 登记 (另有 `http://localhost:4007/...` 供本机试跑).
+- 核对授权链接用的是新 client (只看前缀): `curl -s https://app.stellarbyte.ca/api/auth/oauth/GOOGLE | grep -o 'client_id=[0-9]\{12\}'` 应为 `344812424356`.
+- 已验证邮箱关联: Google 账号的已验证邮箱与已有本地 (邮箱注册) 用户相同时, 直接登录该用户 (仅限已激活的本地用户; 未激活的不关联, 照常新建 Google 用户, 防止他人抢注同邮箱后接管), 不新建组织, 不改 `providerName`. Google 返回的 token 必须是发给本 client 的 (`getTokenInfo` 校验 `aud`). 移动端 (上游 app 的 `redirect_uri`) 不在范围, 未在新 client 登记.
+- 关闭: `GOOGLE_LOGIN_ENABLED="false"` + `docker compose up -d --no-deps app`.
 
 ### 12.2 社媒账号授权
 
@@ -208,7 +233,7 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 | app 启动卡在 prisma | 启动脚本每次跑 `pnpm dlx prisma@6.5.0 db push`, 需要容器能访问 registry.npmjs.org; 外网或 npm 故障时启动失败, 恢复后 `docker compose restart app` |
 | 磁盘不足 | `df -h /`; `docker system df`; 只删确认无用的旧镜像 (`docker image rm <旧 tag>`), 保留当前与上一版. 不要 `docker volume prune` (同机有 Stalwart / Listmonk 的卷); 主机遗留镜像与匿名卷已于 2026-11-03 清理 (根盘 31% → 15%, 明细见 INFRA vps 文档历史节); 磁盘 > 85% 时 `host-resource-check` 会告警 |
 | 备份单元 226/NAMESPACE | `ReadWritePaths` 目录不存在: `install -d -m 0700 /opt/stellarpostiz/backups` |
-| 登录页出现 Google 按钮 | `GOOGLE_LOGIN_ENABLED` 不是 `false` (r3 起默认隐藏; Google 登录会撞 "registration disabled") |
+| Google 登录报 `redirect_uri_mismatch` / `invalid_client` | `GOOGLE_LOGIN_CLIENT_ID/SECRET` 缺失或不是 `stellarbyte-scheduler-login` 的 client; 或 `FRONTEND_URL` 变了而 client 里没登记新回调 (第 12.1 节 "Google 登录") |
 | LinkedIn 出现 "LinkedIn Page" | `HIDDEN_PROVIDERS="linkedin-page"` 丢了 |
 | 媒体 URL 404 / 双斜杠 | `CLOUDFLARE_BUCKET_URL` 末尾多了 `/` |
 | Cloudflare 526 | SSL 模式被改成 strict, 改回 Full |
