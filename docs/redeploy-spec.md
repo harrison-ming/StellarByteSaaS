@@ -16,7 +16,7 @@ status: active
 - **代码基线**: 上游 Postiz 正式版 `v2.25.3` (2026-10-24), 不跟 main.
 - **保留**: Harrison 原有的 StellarByte 品牌改动 (纯前端), 并覆盖新版新增的品牌露出.
 - **可持续**: 以后每个上游正式版都能按第 4 节流程低成本跟进.
-- **不影响其他项目**: Contabo 上的 Stalwart 邮件 (15 域名) 与 Listmonk 是生产服务, 第 5 节约束是硬性的.
+- **不影响其他项目**: Contabo 上的 Stalwart 邮件 (16 域名 / 41 账号, 2026-11-03 实测) 与 Listmonk 是生产服务, 第 5 节约束是硬性的.
 - **不在本期范围**: Facebook / Instagram (两个 Meta app 都不能发 Page 帖, StellarPage 被限制; 见 11 节), LinkedIn 公司主页, Chrome 扩展, 开放注册, 计费.
 
 ## 2. 已确定的决策
@@ -116,6 +116,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 - 证书沿用 `/etc/ssl/certs/origin.crt` (**自签名**, 非 Cloudflare Origin CA); Cloudflare SSL 模式必须保持 Full, 不得改 strict.
 - 按新版端口布局重写站点配置 (不得直接套用 `decommission-20260908/` 旧版), 加 `client_max_body_size` (建议 100m, 与 Cloudflare 免费版请求体上限一致) 与 WebSocket upgrade.
 - `nginx -t` 通过后 reload; 验收 listmonk-api、smtp-admin 访问行为不变.
+- 安全头与登录限速只写在本站点文件内 (不改全局 `nginx.conf`, 不改 Cloudflare zone): HSTS 6 个月不带 preload, nosniff, `X-Frame-Options SAMEORIGIN`, `Referrer-Policy strict-origin-when-cross-origin`, 最小 `Permissions-Policy`; `/api/auth/*` 未登录端点按访客真实 IP 限速并返回 429 (2026-11-04 补, 细节 runbook 第 9 节).
 
 ### 5.4 邮件
 
@@ -125,7 +126,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 ### 5.5 备份与监控
 
 - 新 Postgres 每日 `pg_dump -Fc` (03:45 UTC, 避开 Listmonk 03:15), 本地保留 + 上传私有 R2, 带回读校验与 watchdog; 照搬 `/usr/local/sbin/listmonk-backup.sh` 模式. **验收须完成一次恢复演练** (恢复到临时库并计数核对).
-- 全部容器 `restart: unless-stopped` + healthcheck; 外部存活检查失败时通过 Discord 告警 (`STELLAR INFRA/DEPLOY/discord/`).
+- 全部容器 `restart: unless-stopped` + healthcheck; 外部存活检查失败时通过 Discord 告警 (`STELLAR INFRA/DEPLOY/discord/`); 主机资源 (磁盘 / 内存 / swap / OOM) 每 10 分钟检查, 越线经同一通知器告警 (2026-11-04 补).
 - 日志 json-file 10m×3.
 
 ### 5.6 凭据
@@ -170,6 +171,8 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 | 3 | 完成 (24h 观察待做) | Contabo 上线, 端口扫描 / 出站 25 拦截 / Stalwart 健康 16/16 / 备份 + R2 回读 + 恢复演练 / Discord 存活告警均通过; 8.3 的 "24h 无 OOM" 待 Harrison 复核 |
 | 4 | 部分完成 | 完成: 积压 112 条导出并删除; API key 轮换并入 Windmill secret; 7 个脚本核对 (修 2 个); redirect URI 核对 (LinkedIn / Google 已登记, Pinterest 待首次授权验证); r3 / r4 上线. **待 Harrison**: 全部账号授权 (第 9 节) |
 | 5 | 完成 | runbook [DEPLOYMENT.md](DEPLOYMENT.md) 改写, `config-readme.md` / README 更新, 第 10 节跨仓库文档同步 (各仓库本地 commit) |
+| 跟进 C (主机) | 完成 | DOCKER-USER 规则重放幂等; 清理遗留镜像与匿名卷 (根盘 31% → 15%); Stalwart 冷备份上线 (本地 + 私有 R2 `stalwart-backups`, 停机约 8 秒) 并恢复演练 41 账号 / 16 域名一致 |
+| 跟进 E (加固与演练) | 完成 | nginx 安全头 + 登录限速 (连续错误密码第 6 次起 429, 约 1 分钟恢复; listmonk-api / smtp-admin 与上线前快照一致); 两个备份 watchdog 告警演练 (ALERT + RECOVERY 到 #errors); `host-resource-check.timer` 上线并 self-test; 从 R2 下载的离机恢复演练 88 表一致; 外部安全检查见第 11 节. stalwart-health 前后 16/16 |
 | 跟进 A (r5 等) | 完成 | r5 (commit 49d517da, tag `stellarbyte-v2.25.3-r5`): Stripe.js 改 `pure` 入口且无 key 不加载, 国旗图标自托管; `apply-brand --check` 34/34; 镜像 CI run 41733918707 成功; 上线前备份 success, app healthy, worker 在线; 登录 + launches + settings + 语言弹窗全程无 stripe / jsdelivr 请求 (仅余 cloudflareinsights). 上游监视 workflow + `UPSTREAM_BASE` (f13a4998), 依赖默认分支 (第 4 / 9 节). 上游 PR 补丁与草稿已备, 未提交 (第 9 节) |
 
 ## 8. 验收标准
@@ -206,24 +209,25 @@ HTTPS 全站; 注册关闭; 所有密钥新生成且不入 git; 每日备份 + �
 - **Bitwarden 写入** (全局规则逐条确认, hook 硬拦): `app-noreply@stellarbyte.ca` 邮箱条目; 生产密钥 (`.env.production`) 备份条目.
 - GitHub UI 禁用旧 `main` 上的 2 个上游定时 workflow: "Resolve staging conflicts", "Close inactive issues".
 - 是否让远端 `main` 改指 `stellarbyte` (需强推或改默认分支; 旧历史已由 tag `legacy/v2.7-fork` 保留). **上游监视 workflow 依赖此项**: 默认分支改为 `stellarbyte` 后其每周 schedule 才生效 (第 4 节); 改之前可在 Actions 页手动确认一次 `Upstream release watch` 出现并能 Run.
-- 上线 24h 复核: 无 OOM (`dmesg`, `docker inspect` OOMKilled), Stalwart 内存与延迟正常.
-- (可选) 清理 Contabo 遗留镜像与匿名卷, 约 12G.
+- 上线 24h 复核: 无 OOM (`dmesg`, `docker inspect` OOMKilled), Stalwart 内存与延迟正常. 2026-11-04 07:00 UTC (上线约 13h) 中间检查: `/proc/vmstat oom_kill` 0, 全部容器 OOMKilled=false; 之后新的 OOM 会由 `host-resource-oom` 告警.
 - (若要接 FB / IG) Meta StellarPage 数据访问续期.
-- Stalwart 邮件数据无备份: 另立项.
 - 已知低风险第三方请求: 只剩 static.cloudflareinsights.com (Cloudflare zone RUM 自动注入, 关闭在 Cloudflare 面板 Web Analytics, 影响同 zone 其他站点); 是否关闭由 Harrison 定. (js.stripe.com / cdn.jsdelivr.net 已由 r5 去除.)
 - 上游 PR (Pinterest refresh token, b91ac78a): 补丁与 PR / issue 草稿已备好 (`~/STELLAR_OUTPUT/_tmp/stellarbyte-redeploy-2026-11/upstream-pr/`, 内含命令), 未 fork 未提交. 注意上游 `CONTRIBUTING.md` 明确不接受主要由 AI 生成的 PR, 且需先签 CLA; 建议走 issue 路线或由 Harrison 自行改写后提交.
 
 ## 10. 需同步更新的文档
 
-`docs/config-readme.md`; `docs/DEPLOYMENT.md` (改写); `STELLAR INFRA/machines/contabo/StellarPostiz/README.md`; `machines/contabo/vps-161.97.184.77.md` (Docker 版本、证书为自签名、站点列表、遗留物、Stalwart 无备份); `DEPLOY/cloudflare/usage-by-project.md` 与 `resource.md/json`; `domains/stellarbyte.ca.md`; `STELLAR CONFIG/StellarByteSaaS/accounts.md`; `STELLAR CONFIG/HarrisonMing/credentials.md`; `platforms/pinterest/` (README、account-status、automation、token-refresh-issue); `STELLAR CONFIG/Windmill/pinterest/README.md`; `STELLAR CONFIG/Windmill/agent-flow/multi-channel-design.md`; `host/Windmill/CLAUDE.md`; `machines/MacMini/pinterest-publisher/README.md` (整篇过期).
+`docs/config-readme.md`; `docs/DEPLOYMENT.md` (改写); `STELLAR INFRA/machines/contabo/StellarPostiz/README.md`; `machines/contabo/vps-161.97.184.77.md` (Docker 版本、证书为自签名、站点列表、遗留物、定时任务与备份); `DEPLOY/cloudflare/usage-by-project.md` 与 `resource.md/json`; `domains/stellarbyte.ca.md`; `STELLAR CONFIG/StellarByteSaaS/accounts.md`; `STELLAR CONFIG/HarrisonMing/credentials.md`; `platforms/pinterest/` (README、account-status、automation、token-refresh-issue); `STELLAR CONFIG/Windmill/pinterest/README.md`; `STELLAR CONFIG/Windmill/agent-flow/multi-channel-design.md`; `host/Windmill/CLAUDE.md`; `machines/MacMini/pinterest-publisher/README.md` (整篇过期).
 
 ## 11. 已知风险与未决
 
 - 新应用与邮件服务同机: 资源与网络已隔离, 但整机级故障 (入侵、供应商停机) 会同时影响两者. 彻底隔离需换机器.
 - Meta: StellarPage app 因 2026-10-17 未完成数据访问续期被限制 API; 续期需要可访问的应用地址与测试账号. StellarByte Login app 只有 email/public_profile. 本期不接.
-- Stalwart 邮件数据无任何备份 (与本项目无关, 建议另立项).
 - r4 的 Pinterest 刷新修复依据官方文档与代码审读, 还没有真实 integration 可验证: 首个 Pinterest 账号授权后, 确认 Temporal 中有 `refresh_<integrationId>` 工作流, 并在约 30 天 access token 到期时确认刷新成功且 DB 中 refresh token 已更换.
 - Pinterest 回调 URI 是否已在 Pinterest 后台登记, 只能在首次授权时验证.
 - 上游跟进的自动提醒 (`upstream-release-watch.yml`) 在默认分支改为 `stellarbyte` 前不运行; 期间漏看新版本的风险靠人工核对 (第 4 节).
 - 上游不接受 AI 生成的 PR: L1' 补丁回馈上游只能走 issue 或人工重写, 因此 L1' 补丁可能长期自维护.
 - 审计证据与试做补丁 (临时): `/private/tmp/claude-501/-Users-ming-Documents-host-StellarByteSaaS/dd90af70-e826-47ec-ad4b-68bfc08b149e/scratchpad/branding/`.
+- 外部安全检查 (2026-11-04, 从本机 Mac):
+  - 端口: IPv4 / IPv6 只有 22 / 587 / 993 可连; 80 / 443 只对 Cloudflare 段开放 (Mac 直连不通, 比验收要求更严); 25 从 Mac 测不到 (本机网络封出站 25, 服务器侧 ufw 放行, 11-03 已验证); 3000 / 4007 / 5432 / 6379 / 7233 / 8080 / 9000 等均不通. 主机对外监听只有 22 / 25 / 80 / 443 / 587 / 993.
+  - TLS: 边缘 TLS 1.3 (Google Trust Services 证书, Cloudflare 自动续期), TLS 1.0 / 1.1 被拒; 响应头见 5.3.
+  - `pnpm audit --prod` (分支 `stellarbyte`, 3318 个依赖): critical 1 / high 11 (另 moderate 46, low 14), 全部是上游依赖, 不升级: critical `@sentry/nextjs` 10.56.0 (GHSA-mchm-gjx6-7h55, 需开启 Sentry tunnel route 才可利用; `next.config.js` 未配 `tunnelRoute`, 生产 `NEXT_PUBLIC_SENTRY_DSN` 为空, 不受影响; 修复要把 4 个 `@sentry/*` 从 10.56 升到 10.75+, 不算无行为变化的小补丁). high: `node-forge` 1.4.0 ×7 (经 `google-p12-pem`, 只在用 .p12 服务账号密钥时走到), `zod` 3.x (GHSA-mrhx-c7xc-m3w5, 大集合校验耗内存), `axios` 带的 `follow-redirects` 1.16.1, `query-string` 带的 `decode-uri-component` 0.2.2, `graphql-scalars` 1.25.0 (经 `@copilotkit/runtime` / `type-graphql`). 跟上游版本走 (第 4 节), 每次跟进时复跑 `pnpm audit --prod --audit-level high`.

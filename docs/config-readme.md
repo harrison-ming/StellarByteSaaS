@@ -1,7 +1,7 @@
 # StellarByteSaaS
 
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
-> 最后更新: 2026-11-03
+> 最后更新: 2026-11-04
 
 ## 概述
 
@@ -15,7 +15,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 ## 架构速览
 
 ```
-Cloudflare (proxied, SSL Full) -> Contabo nginx -> 127.0.0.1:4007
+Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限速) -> 127.0.0.1:4007
 └── compose 项目 stellarbyte
     ├── stellarbyte-app       ghcr.io/harrison-ming/stellarbyte-app:<tag> (frontend + backend + Temporal worker)
     ├── stellarbyte-postgres  本机 Postgres 17 (库 stellarbyte / temporal / temporal_visibility)
@@ -23,7 +23,8 @@ Cloudflare (proxied, SSL Full) -> Contabo nginx -> 127.0.0.1:4007
     └── stellarbyte-temporal  Temporal 1.28 (SQL visibility)
 
 媒体: R2 stellar-postiz -> https://media.stellarbyte.ca
-备份: 每日 pg_dump -> 本地 + R2 stellarbyte-backups
+备份: 每日 pg_dump -> 本地 + R2 stellarbyte-backups (本地与离机恢复演练均通过)
+告警: Windmill 外部存活 + 备份 watchdog + 主机资源 -> Discord #errors
 发信: app-noreply@stellarbyte.ca (Stalwart, mx.stellarbyte.ca:587)
 ```
 
