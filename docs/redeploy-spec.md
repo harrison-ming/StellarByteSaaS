@@ -7,7 +7,7 @@ status: active
 
 # StellarByte 重新上线与上游跟进规范 (执行规范 + 验收依据)
 
-> 本文是 2026-11-03 与 Harrison 讨论定稿的结论, 并已按实际执行结果修订 (执行结果见第 7.1 节, 运维操作见 [DEPLOYMENT.md](DEPLOYMENT.md)). 执行 (人或 agent) 必须以本文为准; 与本文冲突的旧文档以本文为准.
+> 本文是 2026-11-03 与 Harrison 讨论定稿的结论 (2026-11-04 追加 D17-D23, 见第 2 节), 并已按实际执行结果修订 (执行结果见第 7.1 节, 运维操作见 [DEPLOYMENT.md](DEPLOYMENT.md)). 执行 (人或 agent) 必须以本文为准; 与本文冲突的旧文档以本文为准.
 > 授权范围: Harrison 2026-11-03 授权一次性推进全部阶段, 中途不逐项确认; 但第 9 节"保留给用户的动作"除外.
 
 ## 1. 目标与边界
@@ -17,7 +17,7 @@ status: active
 - **保留**: Harrison 原有的 StellarByte 品牌改动 (纯前端), 并覆盖新版新增的品牌露出.
 - **可持续**: 以后每个上游正式版都能按第 4 节流程低成本跟进.
 - **不影响其他项目**: Contabo 上的 Stalwart 邮件 (16 域名 / 41 账号, 2026-11-03 实测) 与 Listmonk 是生产服务, 第 5 节约束是硬性的.
-- **不在本期范围**: Facebook / Instagram (两个 Meta app 都不能发 Page 帖, StellarPage 被限制; 见 11 节), LinkedIn 公司主页, Chrome 扩展, 开放注册, 计费.
+- **不在本期范围**: Facebook / Instagram (两个 Meta app 都不能发 Page 帖, StellarPage 被限制; 见 11 节), LinkedIn 公司主页, Chrome 扩展, 计费. (开放注册自 r6 起纳入, 见 D21.)
 
 ## 2. 已确定的决策
 
@@ -32,13 +32,20 @@ status: active
 | D7 | 品牌主色统一蓝 `#3450D4`, logo 一并改蓝 (旧绿 `#01d408` 废弃) | commit 2d368f32 "统一品牌主色调为 #3450D4" |
 | D8 | 品牌替换做到 A 档: 用户主路径 + 全部 locale; 不做 Agents/MCP 内部名与 Chrome 扩展 | 见第 3 节 |
 | D9 | 去掉登录页粒子背景 (react-tsparticles 不兼容 React 19) | — |
-| D10 | 开发者 / 公开 API / MCP 设置页 ("Agents / Dev" 与 "Apps" 标签) 对普通用户隐藏, 仅超管 (`isSuperAdmin`) 可见 (偏离原定 "完全隐藏": 管理员要在此轮换组织 API key); onboarding 去掉 Postiz MCP/CLI/API 入口; 页脚加 "Powered by Postiz · Source" 链接到公开仓库 | AGPL-3.0 第 13 条 + 诚实署名 |
-| D11 | 关闭开放注册 (`DISABLE_REGISTRATION=true`) | SES 与 StellarMail 共用, 保护发信信誉 |
+| D10 | 开发者 / 公开 API / MCP 设置页 ("Agents / Dev" 与 "Apps" 标签) 对普通用户隐藏, 仅超管 (`isSuperAdmin`) 可见 (偏离原定 "完全隐藏": 管理员要在此轮换组织 API key); onboarding 去掉 Postiz MCP/CLI/API 入口. (原定的 "Powered by Postiz · Source" 页脚已由 D17 取消) | 开发者入口是 Postiz 自有产品, 普通用户用不到 |
+| D11 | ~~关闭开放注册 (`DISABLE_REGISTRATION=true`)~~ 已由 D21 取代 (r6) | 原依据: SES 与 StellarMail 共用, 保护发信信誉 |
 | D12 | 积压 `pinterest_publisher.content_queue` 中 status=pending 的 112 条 (原估 113, 实际 112): 先导出 CSV 留档, 再删除 | Harrison 2026-11-03 决定 |
 | D13 | Pinterest 账号全部重新授权 (可授权的约 24 个; revoked/locked/registration_failed 的单列) | Harrison 2026-11-03 决定 |
 | D14 | `platforms/pinterest` 旧的 OAuth / token 刷新工具正式废弃, 今后授权一律走 StellarByte UI | 旧工具写已删除的 Supabase `postiz` schema, 且回调地址与 Postiz 冲突 |
 | D15 | 媒体存储: R2 桶 `stellar-postiz` (先关 r2.dev 公开访问), 绑 `media.stellarbyte.ca`, 用只限该桶的 R2 token; 不用 `cdn.stellarbyte.ca` (归 grysto) | — |
 | D16 | 先在本机 (Mac, arm64, Docker) 试跑通过, 才上 Contabo | — |
+| D17 | app 前端去掉全部 "Powered by Postiz · Source" 署名与源码链接 (登录页 / 应用内页脚组件删除; 计费 FAQ "Can I trust ... open-source" 条目删除, 其 16 种 locale 值由 L2 清空); 取代 D10 的页脚部分 (r6) | Harrison 2026-11-04 决定: app 界面不放第三方署名 |
+| D18 | AGPL-3.0 源码声明改放公开条款页 `https://stellarbyte.ca/terms/` (英文一段: app 基于 Postiz, AGPL-3.0, 修改版完整源码地址 `https://github.com/harrison-ming/StellarByteSaaS`), app 界面不再放 | AGPL-3.0 第 13 条要求向网络用户提供源码获取途径; 条款页是注册时链接的公开页面 |
+| D19 | Google 登录只用独立 OAuth client (GCP 项目 `stellarbyte-scheduler-login`, 同意屏幕应用名 "StellarByte", External, 仅 `userinfo.email` + `userinfo.profile`); 环境变量 `GOOGLE_LOGIN_CLIENT_ID` / `GOOGLE_LOGIN_CLIENT_SECRET`, **不回退** `YOUTUBE_*`; 回调仍是上游默认 `${FRONTEND_URL}/integrations/social/youtube` + `state=login`; 按钮仍受 `GOOGLE_LOGIN_ENABLED` 控制 (r6) | 与 stellar-dev 项目的敏感 scope 与品牌隔离 (同 moveset-io 的做法), 登录同意屏幕显示 StellarByte |
+| D20 | 按已验证邮箱关联账号: OAuth 登录找不到 (providerId, provider) 对应用户时, 若 provider 报告邮箱已验证 (`getUser` 返回 `emailVerified: true`, 目前只有 Google 设置) 且存在同邮箱的本地账号, 直接登录该账号; 不写 `providerName` / `providerId`, 不改已存字段含义; 其余情况走原注册路径 (r6) | 同一人先邮箱注册后用 Google 登录时不产生第二个组织 |
+| D21 | 开放注册 `DISABLE_REGISTRATION=false` (取代 D11); 本地邮箱注册仍须邮件激活; 需要时设回 `true` 并重建 app 即可快速关闭 (runbook 第 12 节) (r6) | Harrison 2026-11-04 决定. 发信信誉风险由激活邮件 + `/api/auth/*` 登录限速 + D23 注册通知人工盯防 |
+| D22 | 删除现有唯一账号 (LOCAL) 及其组织与全部组织数据, 删除前 `pg_dump` 留档; Harrison 用新流程自行重新注册; 不预建用户. 之后: 新用户设 `isSuperAdmin=true`, 轮换组织 API key 写回 Windmill `u/harrisonvancouver/stellarbyte_api_key` (旧 key 随旧组织失效) (r6) | 单用户, 不要求向后兼容 |
+| D23 | 每次新注册发 Discord 通知 (时间, 邮箱, 组织名, provider): Contabo 宿主 systemd timer 每 5 分钟只读查询 Postgres 新用户 (水位线), 不改 app 代码; webhook/token 只放服务器 root-only env 文件 (r6) | 开放注册后需要人工知道谁注册了; 宿主脚本不进上游补丁, 跟进成本为零 |
 
 ## 3. 代码策略: 三层品牌方案
 
@@ -46,10 +53,10 @@ status: active
 
 | 层 | 内容 | 实现 | 跟进成本 |
 |---|---|---|---|
-| L1 git 补丁 (少而稳) | 资源 (favicon.ico / favicon.svg / icon.svg / postiz.svg 原地替换); `new-layout/logo.tsx`、`ui/logo-text.component.tsx`; `colors.scss` 变量; 新增 `brand-overrides.scss` 统一覆盖写死的 `#612BD3` 等任意值类; `auth/layout.tsx` 去掉评价与 "20,000+" 改为 StellarByte 标语; `register.tsx` 条款/隐私链接指向 stellarbyte.ca; 页脚署名; 开发者/API/MCP 页仅超管可见; 登录/注册页 Google 按钮受 `GOOGLE_LOGIN_ENABLED` 控制 (默认隐藏, r3) | 主线上按主题拆成少量 commit (brand / scopes / hide), 每个上游 tag cherry-pick | 低, 涉及文件多数半年内上游 0 改动 |
+| L1 git 补丁 (少而稳) | 资源 (favicon.ico / favicon.svg / icon.svg / postiz.svg 原地替换); `new-layout/logo.tsx`、`ui/logo-text.component.tsx`; `colors.scss` 变量; 新增 `brand-overrides.scss` 统一覆盖写死的 `#612BD3` 等任意值类; `auth/layout.tsx` 去掉评价与 "20,000+" 改为 StellarByte 标语; `register.tsx` 条款/隐私链接指向 stellarbyte.ca; 计费 FAQ 删去 "open-source" 条目 (D17, r6); 开发者/API/MCP 页仅超管可见; 登录/注册页 Google 按钮受 `GOOGLE_LOGIN_ENABLED` 控制 (默认隐藏, r3); Google 登录改用独立 client `GOOGLE_LOGIN_CLIENT_*` 并按已验证邮箱关联本地账号 (D19 / D20, r6) | 主线上按主题拆成少量 commit (brand / scopes / hide), 每个上游 tag cherry-pick | 低, 涉及文件多数半年内上游 0 改动 |
 | L1' 非品牌补丁 (独立) | Facebook 去 `pages_manage_engagement`; LinkedIn 只保留 `openid profile email w_member_social`、去 `prompt=none`; `refreshTokens()` 中 `return`→`continue`; Pinterest `refreshToken()` 保存响应里的新 refresh_token 并设 `refreshCron = true` (r4, Pinterest continuous refresh token 60 天且每次刷新轮换, 原样回传旧 token 会在约 60 天后失效); 未配置计费时不加载 Stripe.js (`@stripe/stripe-js/pure` + 无 publishable key 不调 `loadStripe`) 与国旗图标自托管 (`public/icons/flags/`, 不再请求 cdn.jsdelivr.net) (r5) | 按主题单独 commit, 便于升级时取舍 (上游 main 61cf1dda 已修 continue; Pinterest 问题截至上游 main be325ee1 仍在, 可提上游 PR; 上游修复后丢弃) | 中, provider 文件上游改动频繁 |
 | L2 构建时替换脚本 | 页面 title、16 种 locale 的值 (只改值不改 key)、写死文案、邮件标题 (`[Postiz]` 等)、OAuth 授权页 "Sign in to Postiz"、onboarding 文案与 "Sign in with Postiz" 入口 | `scripts/brand/apply-brand.mjs` + `scripts/brand/manifest.json`; 在 Dockerfile `pnpm run build` 之前运行 | 无 git 冲突 |
-| L3 环境变量 | `NEXT_PUBLIC_BACKEND_URL=https://app.stellarbyte.ca/api` (同源绝对地址, 取代旧 backendUrl 代码补丁; 阶段 2 实测相对值 `/api` 会让 backend 在 `start.mcp.ts` 的 `new URL()` 处崩溃)、`EMAIL_FROM_NAME=StellarByte`、`HIDDEN_PROVIDERS=linkedin-page` (隐藏 LinkedIn 公司主页, 上游机制无代码改动)、`GOOGLE_LOGIN_ENABLED=false`、关闭统计外发 | `.env` (模板 `deploy/contabo/.env.example`) | 零 |
+| L3 环境变量 | `NEXT_PUBLIC_BACKEND_URL=https://app.stellarbyte.ca/api` (同源绝对地址, 取代旧 backendUrl 代码补丁; 阶段 2 实测相对值 `/api` 会让 backend 在 `start.mcp.ts` 的 `new URL()` 处崩溃)、`EMAIL_FROM_NAME=StellarByte`、`HIDDEN_PROVIDERS=linkedin-page` (隐藏 LinkedIn 公司主页, 上游机制无代码改动)、`DISABLE_REGISTRATION=false` (D21)、`GOOGLE_LOGIN_ENABLED` + `GOOGLE_LOGIN_CLIENT_ID/SECRET` (D19)、关闭统计外发 | `.env` (模板 `deploy/contabo/.env.example`) | 零 |
 
 ### 3.2 替换脚本的硬性要求 (验收项)
 
@@ -74,7 +81,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 - 新主线分支 `stellarbyte` = "v2.25.3 + StellarByte 补丁" (不强推覆盖远端 `main`, 不改写任何已推送历史). 是否把 `main` 改指 / 设默认分支由 Harrison 决定 (第 9 节). 远端 `upstream` = `gitroomhq/postiz-app`.
 - 废弃并删除: `package-lock.json`、`deploy-to-107*.sh`、`Deploy to 107` workflow、根目录旧 107 版 `docker-compose.yml` (由 `deploy/contabo/` 取代).
 - 新增: `deploy/contabo/` (compose, nginx 站点, 备份脚本, systemd 单元模板, `.env.example`), `scripts/brand/`, `.github/workflows/build-stellarbyte.yml`, `.github/workflows/upstream-release-watch.yml` + 根目录 `UPSTREAM_BASE` (当前基线上游 tag).
-- 线上运行的代码必须与公开仓库一致 (AGPL).
+- 线上运行的代码必须与公开仓库一致 (AGPL); 源码获取途径公示在 `https://stellarbyte.ca/terms/` (D18), app 界面不放源码链接 (D17).
 
 ## 4. 上游跟进流程 (每个上游正式版)
 
@@ -133,14 +140,14 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 
 - 生产 `.env` 主源: `STELLAR CONFIG/StellarByteSaaS/.env.production`; 服务器 `/opt/stellarpostiz/.env` 权限 600.
 - JWT_SECRET、Postgres 密码、Redis 密码全部新生成; **不得复用**旧 compose 中的 Redis 密码 (已在会话输出中暴露过).
-- OAuth 凭据取自 Bitwarden: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, Google/YouTube `cfc8d358-…` (HOST DEV).
+- OAuth 凭据取自 Bitwarden: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, YouTube `cfc8d358-…` (HOST DEV, 只用于 YouTube 频道授权). Google 登录用独立 client (D19): 下载的 JSON 落 `STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json`, 值进 `.env` 的 `GOOGLE_LOGIN_CLIENT_ID/SECRET`, BW 备份条目 "StellarByte Google OAuth - stellarbyte-scheduler-login" (待 Harrison 写入).
 - 新部署跑通后, 删除 `/opt/stellarpostiz/docker-compose.yml.bak*` 与旧 compose (含明文旧密码).
 
 ## 6. 跨系统连带处理
 
 | 系统 | 动作 | 时机 |
 |---|---|---|
-| Windmill | 新建 secret 变量 `u/harrisonvancouver/stellarbyte_api_key` (新 org API key); 更新 `publish_accounts` 与 `pinterest_publisher.accounts` 的 integration_id; 7 个脚本核对 URL/字段 | 账号授权后 |
+| Windmill | 新建 secret 变量 `u/harrisonvancouver/stellarbyte_api_key` (新 org API key; r6 删除旧组织后失效, Harrison 重新注册后须轮换写回, D22); 更新 `publish_accounts` 与 `pinterest_publisher.accounts` 的 integration_id; 7 个脚本核对 URL/字段 | 账号授权后 |
 | Windmill 定时任务 | 5 个相关 schedule **保持 disabled**, 由 Harrison 决定何时开启 | 见第 9 节 |
 | Supabase `pinterest_publisher.content_queue` | 导出 pending 112 条为 CSV (落 `~/STELLAR_OUTPUT/_tmp/stellarbyte-redeploy-2026-11/`), 然后删除 | 阶段 4 |
 | `platforms/pinterest/` | `oauth.py`、`oauth_api.py`、`db.py`、`scripts/refresh_tokens_api.py` 标记废弃 (文件头 + README), 不再运行 | 阶段 4 |
@@ -180,13 +187,13 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 ### 8.1 代码
 
 - 主线 `stellarbyte` = `v2.25.3` + 补丁 commit, `git log v2.25.3..stellarbyte` 只有 StellarByte 补丁.
-- 品牌: 登录、注册、侧栏、页面标题、邮件、OAuth 授权页、onboarding 无 Postiz 字样 (白名单除外); 主色蓝; 无 Postiz 社会证明; 页脚有署名与源码链接.
+- 品牌: 登录、注册、侧栏、页面标题、邮件、OAuth 授权页、onboarding 无 Postiz 字样 (白名单除外); 主色蓝; 无 Postiz 社会证明; app 前端无 "Powered by" 署名与源码链接 (D17), `https://stellarbyte.ca/terms/` 有 AGPL 源码声明 (D18).
 - CI 构建成功并推送 `ghcr.io/harrison-ming/stellarbyte-app:<tag>` (amd64, 公开包). 已推送的 tag 不改写, 修订用 `-rN`: 首个 tag `stellarbyte-v2.25.3` 推旧私有包 `stellarbyte` 无权限失败; `-r2` 首个可用镜像 (改推公开包 `stellarbyte-app`); `-r3` 隐藏 Google 登录按钮; `-r4` Pinterest refresh token 修复; `-r5` 无计费不加载 Stripe.js + 国旗图标自托管 (当前线上).
 
 ### 8.2 本机冒烟
 
 - 全部容器 healthy; `prisma db push` 完成; Temporal 工作流 worker 已连接.
-- 注册首个管理员 (注册关闭前的首用户或命令行创建), 登录, 创建组织 API key.
+- 注册首个管理员 (浏览器自助注册), 登录, 设超管后创建组织 API key.
 - 上传媒体到 R2 并能在页面显示; 创建一条定时帖到 "预览/草稿" 路径 (不发真实平台).
 - 浏览器网络面板无 postiz 域名外发.
 
@@ -198,15 +205,18 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 
 ### 8.4 商业级底线
 
-HTTPS 全站; 注册关闭; 所有密钥新生成且不入 git; 每日备份 + 恢复演练; 告警; 资源限额; runbook 含部署、升级、回滚、恢复; 公开源码一致 (AGPL).
+HTTPS 全站; 注册开放但本地注册须邮件激活, `/api/auth/*` 限速, 新注册 Discord 通知 (D21 / D23); 所有密钥新生成且不入 git; 每日备份 + 恢复演练; 告警; 资源限额; runbook 含部署、升级、回滚、恢复; 线上代码与公开仓库一致且源码地址在条款页公示 (AGPL, D18).
 
-## 9. 保留给用户的动作 (截至 2026-11-03 仍待办)
+## 9. 保留给用户的动作 (截至 2026-11-04 仍待办)
+
+- **r6 重新注册后 (D22)**: Harrison 在 `https://app.stellarbyte.ca/auth` 自助注册 (邮箱或 Google); 之后对新用户设 `isSuperAdmin=true` (runbook 12.1), 在 Settings 轮换组织 API key 并写回 Windmill `u/harrisonvancouver/stellarbyte_api_key`, 更新 `STELLAR CONFIG/StellarByteSaaS/accounts.md` 的组织 id.
+- **Google 登录真实点击验证**: 生产与本机已核对授权链接使用新 client (D19); 同意屏幕点击走通与 D20 账号关联需 Harrison 本人用 Google 账号走一次.
 
 - **Pinterest 授权 (约 24 个账号, 清单见 `platforms/pinterest/account-status.md`)**: 账号都在 HubStudio 环境里; 本机 HubStudio 登录已过期且免费团队版无 API, ALIEN 连接机不可达. 需 Harrison 登录 HubStudio (或升级套餐 / 恢复 ALIEN) 后按 runbook 12.2 节逐个授权 (授权前核对环境内登录身份).
 - **LinkedIn 个人授权**: 需要已登录的浏览器或 Harrison 本人在 UI 操作.
 - **YouTube**: 选定要绑定的频道后授权.
 - 授权后: 回填 Windmill 变量 `publish_accounts` 与 Supabase `pinterest_publisher.accounts` 的 integration_id, 更新 `STELLAR CONFIG/StellarByteSaaS/accounts.md`; 再决定是否开启 5 个 disabled 的 Windmill 发布 schedule (会对真实账号发帖).
-- **Bitwarden 写入** (全局规则逐条确认, hook 硬拦): `app-noreply@stellarbyte.ca` 邮箱条目; 生产密钥 (`.env.production`) 备份条目.
+- **Bitwarden 写入** (全局规则逐条确认, hook 硬拦): `app-noreply@stellarbyte.ca` 邮箱条目; 生产密钥 (`.env.production`) 备份条目; Google 登录 client 条目 "StellarByte Google OAuth - stellarbyte-scheduler-login" (片段见 `_tmp/stellarbyte-redeploy-2026-11/bw-pending.md`).
 - GitHub UI 禁用旧 `main` 上的 2 个上游定时 workflow: "Resolve staging conflicts", "Close inactive issues".
 - 是否让远端 `main` 改指 `stellarbyte` (需强推或改默认分支; 旧历史已由 tag `legacy/v2.7-fork` 保留). **上游监视 workflow 依赖此项**: 默认分支改为 `stellarbyte` 后其每周 schedule 才生效 (第 4 节); 改之前可在 Actions 页手动确认一次 `Upstream release watch` 出现并能 Run.
 - 上线 24h 复核: 无 OOM (`dmesg`, `docker inspect` OOMKilled), Stalwart 内存与延迟正常. 2026-11-04 07:00 UTC (上线约 13h) 中间检查: `/proc/vmstat oom_kill` 0, 全部容器 OOMKilled=false; 之后新的 OOM 会由 `host-resource-oom` 告警.
