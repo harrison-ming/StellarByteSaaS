@@ -10,8 +10,8 @@ const defaultRedirect = () =>
 
 const makeClient = (redirectUri: string) =>
   new google.auth.OAuth2({
-    clientId: process.env.YOUTUBE_CLIENT_ID,
-    clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
+    clientId: process.env.GOOGLE_LOGIN_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_LOGIN_CLIENT_SECRET,
     redirectUri,
   });
 
@@ -50,6 +50,13 @@ export class GoogleProvider extends AuthProviderAbstract {
 
   async getUser(providerToken: string) {
     const client = makeClient(defaultRedirect());
+    // the token is sent back by the client during registration, so it must
+    // have been issued to our login client and not to another Google app
+    const { aud, email_verified } = await client.getTokenInfo(providerToken);
+    if (aud !== process.env.GOOGLE_LOGIN_CLIENT_ID) {
+      throw new Error('Invalid provider token');
+    }
+
     client.setCredentials({ access_token: providerToken });
     const { data } = await google
       .oauth2({ version: 'v2', auth: client })
@@ -58,6 +65,7 @@ export class GoogleProvider extends AuthProviderAbstract {
     return {
       id: data.id!,
       email: data.email!,
+      emailVerified: !!email_verified,
     };
   }
 }

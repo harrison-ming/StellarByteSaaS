@@ -34,7 +34,7 @@ export function Login() {
     genericOauth,
     googleLoginEnabled,
   } = useVariables();
-  // StellarByte: YOUTUBE_CLIENT_ID also drives Google login; hide it unless
+  // StellarByte: Google login has its own client (GOOGLE_LOGIN_CLIENT_ID); hide it unless
   // GOOGLE_LOGIN_ENABLED=true, and drop the social block when nothing is left.
   const showSocial =
     !isGeneral ||

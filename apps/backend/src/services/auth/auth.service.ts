@@ -150,10 +150,7 @@ export class AuthService {
       throw new Error('Invalid provider token');
     }
 
-    const user = await this._userService.getUserByProvider(
-      providerUser.id,
-      provider
-    );
+    const user = await this.getExistingProviderUser(provider, providerUser);
     if (user) {
       return user;
     }
@@ -190,6 +187,29 @@ export class AuthService {
     }
 
     return create.users[0].user;
+  }
+
+  private async getExistingProviderUser(
+    provider: Provider,
+    providerUser: { email: string; id: string; emailVerified?: boolean }
+  ) {
+    const user = await this._userService.getUserByProvider(
+      providerUser.id,
+      provider
+    );
+    if (user || !providerUser.emailVerified || !providerUser.email) {
+      return user;
+    }
+
+    // The provider vouches for the email: sign in to the activated local
+    // account registered with it. providerName / providerId are left untouched.
+    // A never activated local account may have been created by someone else
+    // with this email, so it is not linked.
+    const localUser = await this._userService.getUserByEmail(
+      providerUser.email
+    );
+
+    return localUser?.activated ? localUser : null;
   }
 
   private async _track(
@@ -318,9 +338,9 @@ export class AuthService {
     if (!user) {
       throw new Error('Invalid user');
     }
-    const checkExists = await this._userService.getUserByProvider(
-      user.id,
-      provider as Provider
+    const checkExists = await this.getExistingProviderUser(
+      provider as Provider,
+      user
     );
     if (checkExists) {
       return { jwt: await this.jwt(checkExists) };
