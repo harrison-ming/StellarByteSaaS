@@ -1,3 +1,10 @@
+---
+owner: Harrison
+review_by: 2027-02-01
+doc_type: readme
+status: active
+---
+
 # StellarByteSaaS
 
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
@@ -19,6 +26,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限速) -> 127.0.0.1:4007
 └── compose 项目 stellarbyte
     ├── stellarbyte-app       ghcr.io/harrison-ming/stellarbyte-app:<tag> (frontend + backend + Temporal worker)
+    │                     当前 stellarbyte-v2.25.3-r6, 回滚 r5; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
     ├── stellarbyte-postgres  本机 Postgres 17 (库 stellarbyte / temporal / temporal_visibility)
     ├── stellarbyte-redis     Redis 7
     └── stellarbyte-temporal  Temporal 1.28 (SQL visibility)
@@ -26,11 +34,12 @@ Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限
 媒体: R2 stellar-postiz -> https://media.stellarbyte.ca
 备份: 每日 pg_dump -> 本地 + R2 stellarbyte-backups (本地与离机恢复演练均通过)
 告警: Windmill 外部存活 + 备份 watchdog + 主机资源 -> Discord #errors; 新注册 -> #stellarbyte-signups (宿主 timer)
-登录: 邮箱 + Google (独立 client, GCP 项目 stellarbyte-scheduler-login)
+登录: 邮箱 + Google (独立 client, GCP 项目 stellarbyte-scheduler-login; env GOOGLE_LOGIN_CLIENT_ID/SECRET + 开关 GOOGLE_LOGIN_ENABLED,
+      不回退 YOUTUBE_*; client 文件 STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json)
 发信: app-noreply@stellarbyte.ca (Stalwart, mx.stellarbyte.ca:587)
 ```
 
-不再使用 Supabase (旧 `postiz` schema 已于 2026-09-08 删除), 也不再用 `cdn.stellarbyte.ca`.
+app 不再使用 Supabase (spec D4; 旧 `postiz` schema 已于 2026-09-08 删除), 也不再用 `cdn.stellarbyte.ca` (D15, 该域归 grysto). Windmill 的 Pinterest 发布链路仍用 Supabase `pinterest_publisher` schema (accounts / content_queue), 与 app 无关.
 
 ## Public API
 
@@ -77,7 +86,7 @@ Pinterest 至少要一张图; `date` 必填.
 
 ## 账号现状
 
-2026-11-04 (r6) 旧账号与组织已删除 (spec D22), 库内 0 用户 / 0 组织 / 0 integration; Windmill 变量 `stellarbyte_api_key` 中的旧 key 已失效. 待 Harrison 重新注册后: 设超管, 轮换 API key 写回 Windmill, 再授权 Pinterest (约 24 个) / LinkedIn 个人 / YouTube (流程见 runbook 第 12 节). Windmill 相关发布 schedule 保持 disabled.
+2026-11-04 (r6) 旧账号与组织已删除 (spec D22), 库内 0 用户 / 0 组织 / 0 integration; Windmill 变量 `stellarbyte_api_key` 中的旧 key 已失效. 待 Harrison 重新注册后: 设超管, 轮换 API key 写回 Windmill, 再授权 Pinterest (23 个可授权账号) / LinkedIn 个人 / YouTube (流程见 runbook 第 12 节). Windmill 相关发布 schedule 保持 disabled.
 
 ## 相关文档
 

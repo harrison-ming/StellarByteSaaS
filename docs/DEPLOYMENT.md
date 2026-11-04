@@ -32,7 +32,7 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 | 位置 | 内容 |
 |---|---|
 | 仓库 `deploy/contabo/` | `docker-compose.yml`, `docker-compose.local.yml` (本机试跑 override), `.env.example`, `postgres/init/10-databases.sh`, `temporal/dynamicconfig/`, `nginx/stellarpostiz`, `firewall/`, `backup/` (脚本 + systemd 单元模板), `signup-notify/` (新注册 Discord 通知, r6) |
-| 服务器 `/opt/stellarpostiz/` | `docker-compose.yml`, `.env` (600), `postgres/init/`, `temporal/` (均从仓库复制), `backups/` (700), `decommission-20260908/` (旧 nginx 站点存档) |
+| 服务器 `/opt/stellarpostiz/` | `docker-compose.yml`, `.env` (600), `.env.pre-rN` / `docker-compose.yml.pre-r6` (升级前副本, 含密钥, 600), `postgres/init/`, `temporal/` (均从仓库复制), `backups/` (700), `decommission-20260908/` (旧 nginx 站点存档) |
 | 服务器 `/usr/local/sbin/` | `stellarbyte-backup.sh`, `stellarbyte-docker-user-fw.sh`, `stellarbyte-signup-notify.sh`, 共用 `notify-command-status.sh` (Discord 告警), 主机级 `host-resource-check.sh` (源码 `STELLAR INFRA/machines/contabo/host-monitor/`) |
 | 服务器 `/etc/systemd/system/` | `stellarbyte-backup.{service,timer}`, `stellarbyte-backup-watchdog.{service,timer}`, `stellarbyte-docker-user-fw.service`, `stellarbyte-signup-notify.{service,timer}`; 主机级 `host-resource-check.{service,timer}` |
 | 服务器 `/etc/nginx/sites-available/stellarpostiz` | 站点 (symlink 到 sites-enabled) |
@@ -45,7 +45,7 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 
 ## 3. 部署 / 更新镜像 tag
 
-tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管; r6 去掉 app 内署名/源码链接, 独立 Google 登录 client + 按已验证邮箱关联本地账号, 开放注册). **当前线上 r6, 回滚目标 r5** (服务器 `.env.pre-r6`, r5 镜像保留). 注意 r5 镜像的 Google 登录读 `YOUTUBE_CLIENT_*`, 回滚到 r5 时把 `GOOGLE_LOGIN_ENABLED` 设回 `false`.
+tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管; r6 去掉 app 内署名/源码链接, 独立 Google 登录 client + 按已验证邮箱关联本地账号, 开放注册). **当前线上 r6, 回滚目标 r5** (服务器 `.env.pre-r6`, r5 / r4 镜像保留; 回滚细节见第 5 节).
 
 ```bash
 # 0. 本机: 打 tag 推送, 等 CI "Build StellarByte image" 成功
@@ -78,7 +78,7 @@ worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --
 
 ## 5. 回滚
 
-- **只回滚 app**: 把 `STELLARBYTE_TAG` 改回上一 tag (服务器上有 `.env.pre-rN` 可直接 `cp` 回去), `docker compose up -d --no-deps app`. 上一版镜像在服务器上保留一版, 不要在验收前 prune.
+- **只回滚 app**: 把 `STELLARBYTE_TAG` 改回上一 tag (服务器上有 `.env.pre-rN` 可直接 `cp` 回去), `docker compose up -d --no-deps app`. 上一版镜像在服务器上保留 (当前 r5 / r4), 不要在验收前 prune. **r6 → r5**: r5 的 Google 登录读 `YOUTUBE_CLIENT_*`, 必须 `GOOGLE_LOGIN_ENABLED="false"`; 直接 `cp .env.pre-r6 .env` 会同时带回 `GOOGLE_LOGIN_ENABLED="false"` 与 `DISABLE_REGISTRATION="true"` (即关闭注册), 要保持开放注册须再改回 `"false"`. 沿用当前 compose 即可 (`docker-compose.yml.pre-r6` 不必还原).
 - **数据库也要回滚** (上游 schema 变更): 停 app -> 用升级前的 dump 恢复 (第 6.3 节) -> 起旧 tag. `prisma db push` 每次启动都会跑, 不可逆的列删除只能靠 dump 恢复.
 
 ## 6. 备份与恢复
