@@ -207,7 +207,7 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
   -c "UPDATE \"User\" SET \"isSuperAdmin\" = true WHERE email = '<管理员邮箱>';"
 ```
 
-组织 API key 在 Settings 里 Rotate, 新值写回 Windmill 变量 `u/harrisonvancouver/stellarbyte_api_key` (第 1 节). 2026-11-04 (r6) 旧账号与组织已删除 (D22: 删除前 dump `/root/r6-predelete-20261104/stellarbyte-predelete.dump`, 单事务 `TRUNCATE "Media", "UserOrganization", "Organization", "User" CASCADE`, 删后 88 表全 0), 旧 key 失效. 2026-11-07 Harrison (`harrison.vancouver@gmail.com`, Google 登录) 已设超管, 组织 StellarByte 的 key 已写回 Windmill. R2 `stellar-postiz` 里无 DB 引用的遗留对象清单见 spec 第 9 节.
+组织 API key 在 Settings 里 Rotate, 新值写回 Windmill 变量 `u/harrisonvancouver/stellarbyte_api_key` (第 1 节). 2026-11-04 (r6) 旧账号与组织已删除 (D22: 删除前 dump `/root/r6-predelete-20261104/stellarbyte-predelete.dump`, 单事务 `TRUNCATE "Media", "UserOrganization", "Organization", "User" CASCADE`, 删后 88 表全 0), 旧 key 失效. 2026-11-07 Harrison (`harrison.vancouver@gmail.com`, Google 登录) 已设超管, 组织 StellarByte 的 key 已写回 Windmill. R2 `stellar-postiz` 里无 DB 引用的 5 个遗留对象 (旧组织媒体, 授权重试头像, 部署探针) 已于 2026-11-07 删除, 现只剩两个 Page 头像 (Integration.picture 引用, 不能删).
 
 #### Google 登录 (r6, spec D19 / D20)
 

@@ -219,7 +219,6 @@ HTTPS 全站; 注册开放但本地注册须邮件激活, `/api/auth/*` 限速, 
 - **YouTube**: 选定要绑定的频道后授权.
 - 授权后: 回填 Windmill 变量 `publish_accounts` 与 Supabase `pinterest_publisher.accounts` 的 integration_id, 更新 `STELLAR CONFIG/StellarByteSaaS/accounts.md` 与全局账号表 (Pinterest 的 integrationId 写 `platforms/pinterest/account-status.json`, 其他平台写 `platforms/_shared/accounts.json` 的 `bindings`, 再 `acctctl lint`, 见 `docs/DEPLOYMENT.md` 12.2); 再决定是否开启 5 个 disabled 的 Windmill 发布 schedule (会对真实账号发帖).
 - **BlessAura Page token 需作废重授**: 2026-11-07 排查 R2 引用时, 一条 grep 把 BlessAura Page 的 access token 打印进了 agent 对话 (未写入文件). 作废方法: Facebook → 设置 → 商业集成 (Business Integrations) 移除 StellarPage 后重新在 app 里连接 BlessAura, 或改 Facebook 密码 (会让全部 Page token 失效, 之后两个 Page 都要重连).
-- R2 `stellar-postiz` 里 5 个无 DB 引用的对象 (旧组织 1 个 `Aey3iKfT8T0oDP8VZp2m.png`, 授权重试留下的 3 个头像 `XuMaQ6m3dN.jpg` / `aZ78W2Gjbj.jpg` / `u4s5kBFVFF.jpg`, 部署探针 `_probe/verify.txt`): agent 删除被权限规则拦下, 是否删由 Harrison 定. 被引用的只有两个 Page 头像 `vRvf7Agxxm.jpg` / `WjYKYNZ2f8.jpg`, 不能删.
 - 已知低风险第三方请求: 只剩 static.cloudflareinsights.com (Cloudflare zone RUM 自动注入, 关闭在 Cloudflare 面板 Web Analytics, **影响同 zone 其他站点**); 是否关闭由 Harrison 定.
 - 上游 PR (Pinterest refresh token, b91ac78a): 草稿在 `~/STELLAR_OUTPUT/_tmp/stellarbyte-redeploy-2026-11/upstream-pr/`. 上游 `CONTRIBUTING.md` 不接受主要由 AI 生成的 PR 且需签 CLA, agent 不代提; 走 issue 或由 Harrison 改写后提交.
 - Meta 数据访问续期为年度要求, 到期前在 Meta 后台 Required actions 处理.
