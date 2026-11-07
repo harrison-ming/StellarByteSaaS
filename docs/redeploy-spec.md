@@ -17,7 +17,7 @@ status: active
 - **保留**: Harrison 原有的 StellarByte 品牌改动 (纯前端), 并覆盖新版新增的品牌露出.
 - **可持续**: 以后每个上游正式版都能按第 4 节流程低成本跟进.
 - **不影响其他项目**: Contabo 上的 Stalwart 邮件 (16 域名 / 41 账号, 2026-11-03 实测) 与 Listmonk 是生产服务, 第 5 节约束是硬性的.
-- **不在本期范围**: Facebook / Instagram (两个 Meta app 都不能发 Page 帖, StellarPage 被限制; 见 11 节), LinkedIn 公司主页, Chrome 扩展, 计费. (开放注册自 r6 起纳入, 见 D21.)
+- **不在本期范围**: Instagram (`instagram_*` 权限未提审), LinkedIn 公司主页, Chrome 扩展, 计费. (开放注册自 r6 起纳入, 见 D21; Facebook Page 自 2026-11-07 起纳入, 见 D24.)
 
 ## 2. 已确定的决策
 
@@ -46,6 +46,7 @@ status: active
 | D21 | 开放注册 `DISABLE_REGISTRATION=false` (取代 D11); 本地邮箱注册仍须邮件激活; 需要时设回 `true` 并重建 app 即可快速关闭 (runbook 第 12 节) (r6) | Harrison 2026-11-04 决定. 发信信誉风险由激活邮件 + `/api/auth/*` 登录限速 + D23 注册通知人工盯防 |
 | D22 | 删除现有唯一账号 (LOCAL) 及其组织与全部组织数据, 删除前 `pg_dump` 留档; Harrison 用新流程自行重新注册; 不预建用户. 之后: 新用户设 `isSuperAdmin=true`, 轮换组织 API key 写回 Windmill `u/harrisonvancouver/stellarbyte_api_key` (旧 key 随旧组织失效) (r6) | 单用户, 不要求向后兼容 |
 | D23 | 每次新注册发 Discord 通知 (时间, 邮箱, 组织名, provider): Contabo 宿主 systemd timer 每 5 分钟只读查询 Postgres 新用户 (水位线), 不改 app 代码; webhook/token 只放服务器 root-only env 文件 (r6) | 开放注册后需要人工知道谁注册了; 宿主脚本不进上游补丁, 跟进成本为零 |
+| D24 | 接入 Facebook Page: Meta app `StellarPage` (App ID `4160936944155117`) 完成数据访问续期与审核 (用例 "Manage everything on your Page", Published), `.env` 加 `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET`, 只重建 app, 无代码改动; 代码请求的 5 个权限经 Graph API 核对均为 live. Instagram 仍不在范围. Meta 审核测试账号 `test@stellarbyte.ca` (组织 "Meta App Review", 非超管; 邮箱 Stalwart `sb-test`) | Harrison 2026-11-07 决定并授权上线 |
 
 ## 3. 代码策略: 三层品牌方案
 
@@ -78,7 +79,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 ### 3.5 仓库组织
 
 - 旧 fork 历史打 tag `legacy/v2.7-fork` 保留 (不删).
-- 新主线分支 `stellarbyte` = "v2.25.3 + StellarByte 补丁" (不强推覆盖远端 `main`, 不改写任何已推送历史). 是否把 `main` 改指 / 设默认分支由 Harrison 决定 (第 9 节). 远端 `upstream` = `gitroomhq/postiz-app`.
+- 新主线分支 `stellarbyte` = "v2.25.3 + StellarByte 补丁" (不强推覆盖远端 `main`, 不改写任何已推送历史). 默认分支 2026-11-07 已改为 `stellarbyte` (`main` 保留不动). 远端 `upstream` = `gitroomhq/postiz-app`.
 - 废弃并删除: `package-lock.json`、`deploy-to-107*.sh`、`Deploy to 107` workflow、根目录旧 107 版 `docker-compose.yml` (由 `deploy/contabo/` 取代).
 - 新增: `deploy/contabo/` (compose, `docker-compose.local.yml` 本机试跑 override, nginx 站点, `firewall/`, 备份脚本与 systemd 单元模板, `signup-notify/` (r6), `postgres/init`, `temporal/dynamicconfig`, `.env.example`), `scripts/brand/`, `.github/workflows/build-stellarbyte.yml`, `.github/workflows/upstream-release-watch.yml` + 根目录 `UPSTREAM_BASE` (当前基线上游 tag).
 - 线上运行的代码必须与公开仓库一致 (AGPL); 源码获取途径公示在 `https://stellarbyte.ca/terms/` (D18), app 界面不放源码链接 (D17).
@@ -147,7 +148,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 
 | 系统 | 动作 | 时机 |
 |---|---|---|
-| Windmill | 新建 secret 变量 `u/harrisonvancouver/stellarbyte_api_key` (新 org API key; r6 删除旧组织后失效, Harrison 重新注册后须轮换写回, D22); 更新 `publish_accounts` 与 `pinterest_publisher.accounts` 的 integration_id; 7 个脚本核对 URL/字段 | 账号授权后 |
+| Windmill | 新建 secret 变量 `u/harrisonvancouver/stellarbyte_api_key` (新 org API key; 2026-11-07 已写回组织 StellarByte 的 key, D22); 更新 `publish_accounts` 与 `pinterest_publisher.accounts` 的 integration_id; 7 个脚本核对 URL/字段 | 账号授权后 |
 | Windmill 定时任务 | 5 个相关 schedule **保持 disabled**, 由 Harrison 决定何时开启 | 见第 9 节 |
 | Supabase `pinterest_publisher.content_queue` | 导出 pending 112 条为 CSV (落 `~/STELLAR_OUTPUT/_tmp/stellarbyte-redeploy-2026-11/`), 然后删除 | 阶段 4 |
 | `platforms/pinterest/` | `oauth.py`、`oauth_api.py`、`db.py`、`scripts/refresh_tokens_api.py` 标记废弃 (文件头 + README), 不再运行 | 阶段 4 |
@@ -182,6 +183,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 | 跟进 E (加固与演练) | 完成 | nginx 安全头 + 登录限速 (连续错误密码第 6 次起 429, 约 1 分钟恢复; listmonk-api / smtp-admin 与上线前快照一致); 两个备份 watchdog 告警演练 (ALERT + RECOVERY 到 #errors); `host-resource-check.timer` 上线并 self-test; 从 R2 下载的离机恢复演练 88 表一致; 外部安全检查见第 11 节. stalwart-health 前后 16/16 |
 | 跟进 A (r5 等) | 完成 | r5 (commit 49d517da, tag `stellarbyte-v2.25.3-r5`): Stripe.js 改 `pure` 入口且无 key 不加载, 国旗图标自托管; `apply-brand --check` 34/34; 镜像 CI run 41733918707 成功; 上线前备份 success, app healthy, worker 在线; 登录 + launches + settings + 语言弹窗全程无 stripe / jsdelivr 请求 (仅余 cloudflareinsights). 上游监视 workflow + `UPSTREAM_BASE` (f13a4998), 依赖默认分支 (第 4 / 9 节). 上游 PR 补丁与草稿已备, 未提交 (第 9 节) |
 | r6 (2026-11-04, D17-D23) | 完成 | commit 5ad33c16 / e61ef9ef / 9e4ed163, tag `stellarbyte-v2.25.3-r6`, 镜像 CI run 41865783123; `apply-brand --check` 32/32, 残留 0. 生产: 上线前 pg_dump (`/root/r6-predelete-20261104/`), app healthy, Google 授权链接 client_id 前缀 `344812424356`; 旧账号与组织已删 (88 表全 0; 旧 Media 行对应的 1 个 R2 对象留在 `stellar-postiz`); 注册通知端到端到 `#stellarbyte-signups` 已验证; 条款页第 16 节上线 (`host/StellarByte` 06ebd04). 回滚: `.env.pre-r6` + r5 镜像 (runbook 第 5 节). 细节见 progress.md r6 节 |
+| Facebook Page (2026-11-07, D24) | 完成 (测试帖 PUBLISHED 后已删, 第 9 节) | Meta 测试账号: Stalwart 新建 `sb-test` (PID 71), app 注册 `test@stellarbyte.ca` 经 IMAP 取激活链接激活并 API 登录 200; 先前未激活的 iCloud 测试账号与组织单事务删除. 凭据: App Secret 经 Graph API 换 app token 校验通过, 5 个权限 live; 主源与服务器 `.env` 逐 key 哈希一致 (服务器副本 `.env.pre-fb`); 上线前备份 set `20261107T195541Z`; `up -d --no-deps app` 约 95s healthy, 容器内变量已生效, Temporal worker 已连接, stalwart-health 前后 16/16, `oom_kill` 0. Add Channel → Facebook Page 跳转 Facebook 登录页无报错, client_id / redirect_uri / scope 正确. 首个授权: Page `BlessAura` (760948253779464) 连在测试组织 "Meta App Review" ; 随后 Page `Totvan` (773088619228647) 同组织授权, 同样校验通过; `inBetweenSteps=false`; `debug_token`: type PAGE, is_valid, 长期 token (`expires_at` 0), `data_access_expires_at` 2027-02-05 (90 天, 期间用户无活动则需重连), 含 `pages_manage_posts`. **待**: 发一条测试帖确认 PUBLISHED |
 
 ## 8. 验收标准
 
@@ -208,23 +210,27 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 
 HTTPS 全站; 注册开放但本地注册须邮件激活, `/api/auth/*` 限速, 新注册 Discord 通知 (D21 / D23); 所有密钥新生成且不入 git; 每日备份 + 恢复演练; 告警; 资源限额; runbook 含部署、升级、回滚、恢复; 线上代码与公开仓库一致且源码地址在条款页公示 (AGPL, D18).
 
-## 9. 保留给用户的动作 (截至 2026-11-04 仍待办)
+## 9. 保留给用户的动作 (截至 2026-11-07 仍待办)
 
-- **r6 重新注册后 (D22)**: Harrison 在 `https://app.stellarbyte.ca/auth` 自助注册 (邮箱或 Google); 之后对新用户设 `isSuperAdmin=true` (runbook 12.1), 在 Settings 轮换组织 API key 并写回 Windmill `u/harrisonvancouver/stellarbyte_api_key`, 更新 `STELLAR CONFIG/StellarByteSaaS/accounts.md` 的组织 id.
-- **Google 登录真实点击验证**: 生产与本机已核对授权链接使用新 client (D19); 同意屏幕点击走通与 D20 账号关联需 Harrison 本人用 Google 账号走一次. 同时确认 GCP 项目 `stellarbyte-scheduler-login` 的 OAuth 同意屏幕 Audience 为 In production (Testing 时非测试用户无法 Google 登录).
+只剩必须由 Harrison 本人登录 / 选择 / 付费才能推进的项:
 
-- **Pinterest 授权 (23 个可授权账号, 逐个操作清单见 `STELLAR INFRA/platforms/pinterest/authorization-checklist.md`, 状态见 `account-status.md`)**: 账号都在 HubStudio 环境里; 本机 HubStudio 登录已过期且免费团队版无 API, ALIEN 连接机不可达. 需 Harrison 登录 HubStudio (或升级套餐 / 恢复 ALIEN) 后按 runbook 12.2 节逐个授权 (授权前核对环境内登录身份).
-- **LinkedIn 个人授权**: 需要已登录的浏览器或 Harrison 本人在 UI 操作.
+- **Pinterest 授权 (23 个可授权账号, 清单 `STELLAR INFRA/platforms/pinterest/authorization-checklist.md`)**: 账号都在 HubStudio 环境里. 2026-11-07 复查: 本机 HubStudio 客户端在运行, 但本地 API 返回 code 26 "团队当前套餐为免费版, 无法使用 API"; ALIEN 连接机仍不可达. 需升级 HubStudio 套餐, 或 Harrison 在客户端里逐个打开环境按 runbook 12.2 节授权 (授权前核对环境内登录身份). 首个号授权后再验第 11 节的 Pinterest 刷新与回调两项.
+- **LinkedIn 个人授权** (`personal-linkedin`): 2026-11-07 在自动化浏览器里发起过, 跳到 LinkedIn 登录页 (未登录, 为免触发风控未用自动化登录). 需在已登录 LinkedIn 的浏览器里点 "添加频道 → LinkedIn".
 - **YouTube**: 选定要绑定的频道后授权.
 - 授权后: 回填 Windmill 变量 `publish_accounts` 与 Supabase `pinterest_publisher.accounts` 的 integration_id, 更新 `STELLAR CONFIG/StellarByteSaaS/accounts.md`; 再决定是否开启 5 个 disabled 的 Windmill 发布 schedule (会对真实账号发帖).
-- **Bitwarden 写入** (全局规则逐条确认, hook 硬拦): `app-noreply@stellarbyte.ca` 邮箱条目; 生产密钥 (`.env.production`) 备份条目; Google 登录 client 条目 "StellarByte Google OAuth - stellarbyte-scheduler-login"; 修改 `Pinterest Developer App - StellarByte` (`c5fd1a75-…`) 的 Status / Purpose 字段; 可选: Discord webhook `stellarbyte-signups` 备份条目 (各项片段见 `_tmp/stellarbyte-redeploy-2026-11/bw-pending.md` a-e).
-- GitHub UI 禁用旧 `main` 上的 2 个上游定时 workflow: "Resolve staging conflicts", "Close inactive issues".
-- 是否让远端 `main` 改指 `stellarbyte` (需强推或改默认分支; 旧历史已由 tag `legacy/v2.7-fork` 保留). **上游监视 workflow 依赖此项**: 默认分支改为 `stellarbyte` 后其每周 schedule 才生效 (第 4 节); 改之前可在 Actions 页手动确认一次 `Upstream release watch` 出现并能 Run.
-- 上线 24h 复核: 无 OOM (`dmesg`, `docker inspect` OOMKilled), Stalwart 内存与延迟正常. 2026-11-04 07:00 UTC (上线约 13h) 中间检查: `/proc/vmstat oom_kill` 0, 全部容器 OOMKilled=false; 之后新的 OOM 会由 `host-resource-oom` 告警.
-- (若要接 FB / IG) Meta StellarPage 数据访问续期.
-- (可选) 旧组织遗留的 1 个 R2 媒体对象 (`stellar-postiz`) 是否删除.
-- 已知低风险第三方请求: 只剩 static.cloudflareinsights.com (Cloudflare zone RUM 自动注入, 关闭在 Cloudflare 面板 Web Analytics, 影响同 zone 其他站点); 是否关闭由 Harrison 定. (js.stripe.com / cdn.jsdelivr.net 已由 r5 去除.)
-- 上游 PR (Pinterest refresh token, b91ac78a): 补丁与 PR / issue 草稿已备好 (`~/STELLAR_OUTPUT/_tmp/stellarbyte-redeploy-2026-11/upstream-pr/`, 内含命令), 未 fork 未提交. 注意上游 `CONTRIBUTING.md` 明确不接受主要由 AI 生成的 PR, 且需先签 CLA; 建议走 issue 路线或由 Harrison 自行改写后提交.
+- **BlessAura Page token 需作废重授**: 2026-11-07 排查 R2 引用时, 一条 grep 把 BlessAura Page 的 access token 打印进了 agent 对话 (未写入文件). 作废方法: Facebook → 设置 → 商业集成 (Business Integrations) 移除 StellarPage 后重新在 app 里连接 BlessAura, 或改 Facebook 密码 (会让全部 Page token 失效, 之后两个 Page 都要重连).
+- R2 `stellar-postiz` 里 5 个无 DB 引用的对象 (旧组织 1 个 `Aey3iKfT8T0oDP8VZp2m.png`, 授权重试留下的 3 个头像 `XuMaQ6m3dN.jpg` / `aZ78W2Gjbj.jpg` / `u4s5kBFVFF.jpg`, 部署探针 `_probe/verify.txt`): agent 删除被权限规则拦下, 是否删由 Harrison 定. 被引用的只有两个 Page 头像 `vRvf7Agxxm.jpg` / `WjYKYNZ2f8.jpg`, 不能删.
+- 已知低风险第三方请求: 只剩 static.cloudflareinsights.com (Cloudflare zone RUM 自动注入, 关闭在 Cloudflare 面板 Web Analytics, **影响同 zone 其他站点**); 是否关闭由 Harrison 定.
+- 上游 PR (Pinterest refresh token, b91ac78a): 草稿在 `~/STELLAR_OUTPUT/_tmp/stellarbyte-redeploy-2026-11/upstream-pr/`. 上游 `CONTRIBUTING.md` 不接受主要由 AI 生成的 PR 且需签 CLA, agent 不代提; 走 issue 或由 Harrison 改写后提交.
+- Meta 数据访问续期为年度要求, 到期前在 Meta 后台 Required actions 处理.
+
+2026-11-07 已完成 (原第 9 节项):
+- Harrison (`harrison.vancouver@gmail.com`, Google 登录) 设 `isSuperAdmin=true`; 组织 StellarByte (`f27d1cfd-…`) 的 API key 写回 Windmill `u/harrisonvancouver/stellarbyte_api_key`, 公开 API 200. 组织 key 在注册时由服务端随机生成且未暴露过, 未再轮换.
+- Google 登录: GCP `stellarbyte-scheduler-login` 同意屏幕原为 **Testing** (只有测试用户能用 Google 登录), 补齐 Branding 的首页 / 隐私 / 条款链接后 Publish 为 In production (只用非敏感 scope, 无需 Google 审核); 用 Harrison 的 Google 账号实测登录进已有账号, 未新建用户.
+- Facebook Page: BlessAura / Totvan 从 "Meta App Review" 组织迁到 StellarByte 组织 (迁前备份 20261107T230019Z); 经公开 API 向 BlessAura 发测试帖 PUBLISHED, Graph API 确认后已删除. `HIDDEN_PROVIDERS` 加 `instagram,instagram-standalone`, app 重建约 70s healthy, 添加频道列表已无 Instagram.
+- Bitwarden: (a)-(e) 待写条目与 `test@stellarbyte.ca` 条目全部写入 (UUID 见 `STELLAR CONFIG/StellarByteSaaS/credentials.md`), 两个邮箱用 BW 中密码 IMAP 回读登录通过; `~/Desktop/Facebookapp` 明文已删.
+- GitHub: 默认分支改为 `stellarbyte`; `Close inactive issues` 手动禁用 (改默认分支后它因 stellarbyte 分支上有同名文件被重新激活过); "Resolve staging conflicts" 只存在于上游仓库, fork 里没有; `Upstream release watch` 手动跑一次 success, 每周 schedule 生效.
+- 上线复核: 截至 2026-11-07 运行约 4.6 天, `/proc/vmstat oom_kill` 0, 全部容器 OOMKilled=false 且 0 次重启, 可用内存约 5.2G, swap 基本未用, `stalwart-health.sh` 16/16.
 
 ## 10. 需同步更新的文档
 
@@ -233,10 +239,9 @@ HTTPS 全站; 注册开放但本地注册须邮件激活, `/api/auth/*` 限速, 
 ## 11. 已知风险与未决
 
 - 新应用与邮件服务同机: 资源与网络已隔离, 但整机级故障 (入侵、供应商停机) 会同时影响两者. 彻底隔离需换机器.
-- Meta: StellarPage app 因 2026-10-17 未完成数据访问续期被限制 API; 续期需要可访问的应用地址与测试账号. StellarByte Login app 只有 email/public_profile. 本期不接.
+- Meta: StellarPage 2026-10-17 因未完成数据访问续期被限制, 2026-11-07 续期与审核通过 (D24). 年度续期漏做会再次被限制, 届时 Facebook 发帖全部失败. Instagram 未提审, 入口已用 `HIDDEN_PROVIDERS` 隐藏 (2026-11-07); 提审通过后从该变量去掉 `instagram`.
 - r4 的 Pinterest 刷新修复依据官方文档与代码审读, 还没有真实 integration 可验证: 首个 Pinterest 账号授权后, 确认 Temporal 中有 `refresh_<integrationId>` 工作流, 并在约 30 天 access token 到期时确认刷新成功且 DB 中 refresh token 已更换.
 - Pinterest 回调 URI 是否已在 Pinterest 后台登记, 只能在首次授权时验证.
-- 上游跟进的自动提醒 (`upstream-release-watch.yml`) 在默认分支改为 `stellarbyte` 前不运行; 期间漏看新版本的风险靠人工核对 (第 4 节).
 - 上游不接受 AI 生成的 PR: L1' 补丁回馈上游只能走 issue 或人工重写, 因此 L1' 补丁可能长期自维护.
 - 审计证据与试做补丁 (临时): `/private/tmp/claude-501/-Users-ming-Documents-host-StellarByteSaaS/dd90af70-e826-47ec-ad4b-68bfc08b149e/scratchpad/branding/` (会话级临时目录, 可能已被清理).
 - 外部安全检查 (2026-11-04, 从本机 Mac):

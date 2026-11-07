@@ -86,7 +86,7 @@ Pinterest 至少要一张图; `date` 必填.
 
 ## 账号现状
 
-2026-11-04 (r6) 旧账号与组织已删除 (spec D22), 库内 0 用户 / 0 组织 / 0 integration; Windmill 变量 `stellarbyte_api_key` 中的旧 key 已失效. 待 Harrison 重新注册后: 设超管, 轮换 API key 写回 Windmill, 再授权 Pinterest (23 个可授权账号) / LinkedIn 个人 / YouTube (流程见 runbook 第 12 节). Windmill 相关发布 schedule 保持 disabled.
+2026-11-07: Harrison 已重新注册并设超管, 组织 StellarByte 的 API key 已写回 Windmill `stellarbyte_api_key`; 已接入 Facebook Page BlessAura / Totvan. 待授权: Pinterest (23 个可授权账号, 卡在 HubStudio 免费版无 API) / LinkedIn 个人 / YouTube (流程见 runbook 第 12 节). Windmill 相关发布 schedule 保持 disabled.
 
 ## 相关文档
 

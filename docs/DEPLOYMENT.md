@@ -74,7 +74,7 @@ worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --
 
 按 [redeploy-spec.md](redeploy-spec.md) 第 4 节 (fetch tag -> `sync/<tag>` 分支 cherry-pick L1/L1' -> `node scripts/brand/apply-brand.mjs --check` -> CI + 本机 compose 冒烟 -> 合入 `stellarbyte`, 更新根目录 `UPSTREAM_BASE`, 打 tag -> 本文第 3 节上线).
 
-新版本发现: `.github/workflows/upstream-release-watch.yml` 每周一比对上游最新 release 与 `UPSTREAM_BASE`, 有新版时开 issue. GitHub 只从**默认分支**运行定时 workflow (手动 Run 也要求文件在默认分支); 远端默认分支仍是 `main`, 所以在默认分支改为 `stellarbyte` (spec 第 9 节, 待 Harrison 决定) 前它不会运行, 期间人工核对 `gh api repos/gitroomhq/postiz-app/releases/latest --jq .tag_name`. 本机试跑: `deploy/contabo/docker-compose.local.yml` (子网 `STELLARBYTE_SUBNET=172.31.250.0/24`, 本机 172.30 已被占用).
+新版本发现: `.github/workflows/upstream-release-watch.yml` 每周一比对上游最新 release 与 `UPSTREAM_BASE`, 有新版时开 issue. GitHub 只从**默认分支**运行定时 workflow (手动 Run 也要求文件在默认分支); 远端默认分支 2026-11-07 已改为 `stellarbyte`, 每周 schedule 生效 (当天手动 Run 一次 success); 怀疑漏报时人工核对 `gh api repos/gitroomhq/postiz-app/releases/latest --jq .tag_name`. 注意 `gh` 在本仓库默认指向上游, 操作本 fork 的 workflow / 设置要带 `-R harrison-ming/StellarByteSaaS`. 本机试跑: `deploy/contabo/docker-compose.local.yml` (子网 `STELLARBYTE_SUBNET=172.31.250.0/24`, 本机 172.30 已被占用).
 
 ## 5. 回滚
 
@@ -207,7 +207,7 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
   -c "UPDATE \"User\" SET \"isSuperAdmin\" = true WHERE email = '<管理员邮箱>';"
 ```
 
-组织 API key 在 Settings 里 Rotate, 新值写回 Windmill 变量 `u/harrisonvancouver/stellarbyte_api_key` (第 1 节). 2026-11-04 (r6) 旧账号与组织已删除 (D22: 删除前 dump `/root/r6-predelete-20261104/stellarbyte-predelete.dump`, 单事务 `TRUNCATE "Media", "UserOrganization", "Organization", "User" CASCADE`, 删后 88 表全 0), 旧 key 失效; Harrison 重新注册后须做上面两步. 旧组织上传过 1 个媒体, 其 R2 对象仍在 `stellar-postiz` (无 DB 引用, 未删).
+组织 API key 在 Settings 里 Rotate, 新值写回 Windmill 变量 `u/harrisonvancouver/stellarbyte_api_key` (第 1 节). 2026-11-04 (r6) 旧账号与组织已删除 (D22: 删除前 dump `/root/r6-predelete-20261104/stellarbyte-predelete.dump`, 单事务 `TRUNCATE "Media", "UserOrganization", "Organization", "User" CASCADE`, 删后 88 表全 0), 旧 key 失效. 2026-11-07 Harrison (`harrison.vancouver@gmail.com`, Google 登录) 已设超管, 组织 StellarByte 的 key 已写回 Windmill. R2 `stellar-postiz` 里无 DB 引用的遗留对象清单见 spec 第 9 节.
 
 #### Google 登录 (r6, spec D19 / D20)
 
@@ -221,6 +221,7 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 
 - 一律在 StellarByte UI "Add Channel" 走 OAuth (旧 `platforms/pinterest` 授权/刷新工具已废弃, D14). 回调 `https://app.stellarbyte.ca/integrations/social/<provider>`.
 - **Pinterest**: 逐账号操作清单 (授权前置条件, 身份核对, 回填项) 见 `STELLAR INFRA/platforms/pinterest/authorization-checklist.md`; 下面是要点. 每个账号必须在它自己的 HubStudio 环境里授权 (BW 条目的 "Browser ID" = HubStudio containerCode), 不得在本机浏览器混登. 授权前先在该环境确认 pinterest.com 当前登录的就是目标账号 (头像 / 用户名与 `platforms/pinterest/account-status.md` 一致), 再在该环境打开 StellarByte 登录并 Add Channel. 授权后核对 UI 显示的用户名.
+- **Facebook Page** (2026-11-07 起, spec D24): Meta app `StellarPage` (App ID `4160936944155117`, Business 类型, 已过审并 Published), 环境变量 `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` (主源 `.env.production`). 代码请求的 5 个权限 `pages_show_list` / `business_management` / `pages_manage_posts` / `pages_read_engagement` / `read_insights` 须全部为 live (Advanced), 任一不是则非 app 角色用户授权报 "Invalid Scopes". 核对: `GET https://graph.facebook.com/v21.0/4160936944155117/permissions?access_token=<APP_ID>|<SECRET>` (不要把 secret 打到终端). 回调 `https://app.stellarbyte.ca/integrations/social/facebook` 在 Facebook Login for Business 设置里登记. 只覆盖 Facebook Page: "Instagram (Facebook Business)" 共用这组变量, 但 `instagram_*` 权限未提审, 不要对用户开放.
 - token 刷新: Temporal `refreshTokenWorkflow` 对设了 `refreshCron` 的 provider (Pinterest 自 r4 起, 以及 Threads / Instagram standalone) 在 access token 到期时主动刷新; 其余 provider (LinkedIn / YouTube 等) 在发帖时按需刷新. 失败时 integration 标 `refreshNeeded`, UI 提示重连.
 - 授权后回填: Windmill 变量 `publish_accounts` 与 Supabase `pinterest_publisher.accounts` 的 integration_id; `STELLAR CONFIG/StellarByteSaaS/accounts.md`.
 
@@ -234,7 +235,9 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 | 磁盘不足 | `df -h /`; `docker system df`; 只删确认无用的旧镜像 (`docker image rm <旧 tag>`), 保留当前与上一版. 不要 `docker volume prune` (同机有 Stalwart / Listmonk 的卷); 主机遗留镜像与匿名卷已于 2026-11-03 清理 (根盘 31% → 15%, 明细见 INFRA vps 文档历史节); 磁盘 > 85% 时 `host-resource-check` 会告警 |
 | 备份单元 226/NAMESPACE | `ReadWritePaths` 目录不存在: `install -d -m 0700 /opt/stellarpostiz/backups` |
 | Google 登录报 `redirect_uri_mismatch` / `invalid_client` | `GOOGLE_LOGIN_CLIENT_ID/SECRET` 缺失或不是 `stellarbyte-scheduler-login` 的 client; 或 `FRONTEND_URL` 变了而 client 里没登记新回调 (第 12.1 节 "Google 登录") |
-| LinkedIn 出现 "LinkedIn Page" | `HIDDEN_PROVIDERS="linkedin-page"` 丢了 |
+| 添加频道里出现 "LinkedIn Page" 或 Instagram | `HIDDEN_PROVIDERS="linkedin-page,instagram,instagram-standalone"` 丢了 (两边 `.env`), 改后 `docker compose up -d --no-deps app` |
+| 非测试用户 Google 登录报 "access blocked / app is being tested" | GCP `stellarbyte-scheduler-login` 同意屏幕被改回 Testing; Audience 页 Publish (2026-11-07 起为 In production) |
+| Facebook 授权报 "Invalid Scopes" / "URL blocked" / app 不可用 | 某权限不再是 live (第 12.2 节核对命令), 或回调未登记, 或 Meta 要求年度数据访问续期 (StellarPage 曾因 2026-10-17 未续期被限制) |
 | 媒体 URL 404 / 双斜杠 | `CLOUDFLARE_BUCKET_URL` 末尾多了 `/` |
 | Cloudflare 526 | SSL 模式被改成 strict, 改回 Full |
 | 登录返回 429 | 第 9 节登录限速 (每 IP 10 次/分钟); 等 1 分钟. 多人同一出口 IP 频繁误报时再调 `rate` / `burst` |
