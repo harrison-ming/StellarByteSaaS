@@ -45,7 +45,7 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 
 ## 3. 部署 / 更新镜像 tag
 
-tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管; r6 去掉 app 内署名/源码链接, 独立 Google 登录 client + 按已验证邮箱关联本地账号, 开放注册). **当前线上 r6, 回滚目标 r5** (服务器 `.env.pre-r6`, r5 / r4 镜像保留; 回滚细节见第 5 节).
+tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管; r6 去掉 app 内署名/源码链接, 独立 Google 登录 client + 按已验证邮箱关联本地账号, 开放注册; r7 LinkedIn 公司页改用 CMA 权限与独立 app 变量, 隐藏 gmb). **当前线上 r7, 回滚目标 r6** (服务器 `.env.pre-r7`, r6 / r5 镜像保留; 回滚细节见第 5 节).
 
 ```bash
 # 0. 本机: 打 tag 推送, 等 CI "Build StellarByte image" 成功
@@ -78,7 +78,7 @@ worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --
 
 ## 5. 回滚
 
-- **只回滚 app**: 把 `STELLARBYTE_TAG` 改回上一 tag (服务器上有 `.env.pre-rN` 可直接 `cp` 回去), `docker compose up -d --no-deps app`. 上一版镜像在服务器上保留 (当前 r5 / r4), 不要在验收前 prune. **r6 → r5**: r5 的 Google 登录读 `YOUTUBE_CLIENT_*`, 必须 `GOOGLE_LOGIN_ENABLED="false"`; 直接 `cp .env.pre-r6 .env` 会同时带回 `GOOGLE_LOGIN_ENABLED="false"` 与 `DISABLE_REGISTRATION="true"` (即关闭注册), 要保持开放注册须再改回 `"false"`. 沿用当前 compose 即可 (`docker-compose.yml.pre-r6` 不必还原).
+- **只回滚 app**: 把 `STELLARBYTE_TAG` 改回上一 tag (服务器上有 `.env.pre-rN` 可直接 `cp` 回去), `docker compose up -d --no-deps app`. 上一版镜像在服务器上保留 (当前 r6 / r5 / r4), 不要在验收前 prune. **r7 → r6**: `cp .env.pre-r7 .env` 即可 (只差 tag 与 `HIDDEN_PROVIDERS` 里的 `gmb`, r6 下 gmb 入口会重新出现). **r6 → r5**: r5 的 Google 登录读 `YOUTUBE_CLIENT_*`, 必须 `GOOGLE_LOGIN_ENABLED="false"`; 直接 `cp .env.pre-r6 .env` 会同时带回 `GOOGLE_LOGIN_ENABLED="false"` 与 `DISABLE_REGISTRATION="true"` (即关闭注册), 要保持开放注册须再改回 `"false"`. 沿用当前 compose 即可 (`docker-compose.yml.pre-r6` 不必还原).
 - **数据库也要回滚** (上游 schema 变更): 停 app -> 用升级前的 dump 恢复 (第 6.3 节) -> 起旧 tag. `prisma db push` 每次启动都会跑, 不可逆的列删除只能靠 dump 恢复.
 
 ## 6. 备份与恢复
@@ -222,6 +222,7 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 - 一律在 StellarByte UI "Add Channel" 走 OAuth (旧 `platforms/pinterest` 授权/刷新工具已废弃, D14). 回调 `https://app.stellarbyte.ca/integrations/social/<provider>`.
 - **Pinterest**: 逐账号操作清单 (授权前置条件, 身份核对, 回填项) 见 `STELLAR INFRA/platforms/pinterest/authorization-checklist.md`; 下面是要点. 每个账号必须在它自己的 HubStudio 环境里授权 (BW 条目的 "Browser ID" = HubStudio containerCode), 不得在本机浏览器混登. 授权前先在该环境确认 pinterest.com 当前登录的就是目标账号 (头像 / 用户名与 `platforms/pinterest/account-status.md` 一致), 再在该环境打开 StellarByte 登录并 Add Channel. 授权后核对 UI 显示的用户名.
 - **Facebook Page** (2026-11-07 起, spec D24): Meta app `StellarPage` (App ID `4160936944155117`, Business 类型, 已过审并 Published), 环境变量 `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` (主源 `.env.production`). 代码请求的 5 个权限 `pages_show_list` / `business_management` / `pages_manage_posts` / `pages_read_engagement` / `read_insights` 须全部为 live (Advanced), 任一不是则非 app 角色用户授权报 "Invalid Scopes". 核对: `GET https://graph.facebook.com/v21.0/4160936944155117/permissions?access_token=<APP_ID>|<SECRET>` (不要把 secret 打到终端). 回调 `https://app.stellarbyte.ca/integrations/social/facebook` 在 Facebook Login for Business 设置里登记. 只覆盖 Facebook Page: "Instagram (Facebook Business)" 共用这组变量, 但 `instagram_*` 权限未提审, 不要对用户开放.
+- **LinkedIn 公司页 / Google Business Profile** (r7, spec D25): 入口在 `HIDDEN_PROVIDERS` 里隐藏, 等平台审批. 公司页用独立 LinkedIn app (只挂 Community Management API), 变量 `LINKEDIN_PAGE_CLIENT_ID/SECRET` (不设则回退 `LINKEDIN_CLIENT_*`), 回调 `/integrations/social/linkedin-page`. GMB 用 GCP 项目 `stellarbyte-gbp` 的 client, 变量 `GOOGLE_GMB_CLIENT_ID/SECRET` (不设则回退 `YOUTUBE_CLIENT_*`, 即 stellar-dev 项目, 不要这样用), 回调 `/integrations/social/gmb`; Business Profile API 未获批时项目配额 0, 授权后列门店会失败. 开放步骤见 spec 第 9 节.
 - token 刷新: Temporal `refreshTokenWorkflow` 对设了 `refreshCron` 的 provider (Pinterest 自 r4 起, 以及 Threads / Instagram standalone) 在 access token 到期时主动刷新; 其余 provider (LinkedIn / YouTube 等) 在发帖时按需刷新. 失败时 integration 标 `refreshNeeded`, UI 提示重连.
 - 授权后回填: Windmill 变量 `publish_accounts` 与 Supabase `pinterest_publisher.accounts` 的 integration_id; `STELLAR CONFIG/StellarByteSaaS/accounts.md`; 全局账号表 `STELLAR INFRA/platforms/_shared/accounts.json` 对应账号的 `bindings` (Pinterest 例外: integrationId 写 `platforms/pinterest/account-status.json`), 然后 `acctctl gen && acctctl lint`.
 
@@ -235,7 +236,8 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 | 磁盘不足 | `df -h /`; `docker system df`; 只删确认无用的旧镜像 (`docker image rm <旧 tag>`), 保留当前与上一版. 不要 `docker volume prune` (同机有 Stalwart / Listmonk 的卷); 主机遗留镜像与匿名卷已于 2026-11-03 清理 (根盘 31% → 15%, 明细见 INFRA vps 文档历史节); 磁盘 > 85% 时 `host-resource-check` 会告警 |
 | 备份单元 226/NAMESPACE | `ReadWritePaths` 目录不存在: `install -d -m 0700 /opt/stellarpostiz/backups` |
 | Google 登录报 `redirect_uri_mismatch` / `invalid_client` | `GOOGLE_LOGIN_CLIENT_ID/SECRET` 缺失或不是 `stellarbyte-scheduler-login` 的 client; 或 `FRONTEND_URL` 变了而 client 里没登记新回调 (第 12.1 节 "Google 登录") |
-| 添加频道里出现 "LinkedIn Page" 或 Instagram | `HIDDEN_PROVIDERS="linkedin-page,instagram,instagram-standalone"` 丢了 (两边 `.env`), 改后 `docker compose up -d --no-deps app` |
+| 添加频道里出现 "LinkedIn Page" / Instagram / Google My Business (审批前) | `HIDDEN_PROVIDERS="linkedin-page,instagram,instagram-standalone,gmb"` 丢了 (两边 `.env`), 改后 `docker compose up -d --no-deps app` |
+| Google My Business 授权报 `redirect_uri_mismatch` | 所用 client 未登记 `https://app.stellarbyte.ca/integrations/social/gmb`; 没设 `GOOGLE_GMB_CLIENT_ID` 时会回退到 YouTube 的 client (spec D25) |
 | 非测试用户 Google 登录报 "access blocked / app is being tested" | GCP `stellarbyte-scheduler-login` 同意屏幕被改回 Testing; Audience 页 Publish (2026-11-07 起为 In production) |
 | Facebook 授权报 "Invalid Scopes" / "URL blocked" / app 不可用 | 某权限不再是 live (第 12.2 节核对命令), 或回调未登记, 或 Meta 要求年度数据访问续期 (StellarPage 曾因 2026-10-17 未续期被限制) |
 | 媒体 URL 404 / 双斜杠 | `CLOUDFLARE_BUCKET_URL` 末尾多了 `/` |
