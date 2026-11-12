@@ -88,7 +88,7 @@ Pinterest 至少要一张图; `date` 必填.
 
 ## 账号现状
 
-2026-11-12: Harrison 已注册并设超管, 组织 StellarByte 的 API key 已写回 Windmill `stellarbyte_api_key`; 已接入 Facebook Page BlessAura / Totvan / Harrison Ming (3 个) 与 LinkedIn 个人号 Harrison Ming. 待授权: Pinterest (23 个可授权账号, 卡在 HubStudio 免费版无 API) / YouTube (流程见 runbook 第 12 节). LinkedIn 公司页与 Google Business Profile 入口隐藏, 等平台审批 (spec D25). Windmill 相关发布 schedule 保持 disabled.
+2026-11-12: Harrison 已注册并设超管, 组织 StellarByte 的 API key 已写回 Windmill `stellarbyte_api_key`; 已接入 Facebook Page BlessAura / Totvan 与 LinkedIn 个人号 Harrison Ming. 待授权: Pinterest (23 个可授权账号, 卡在 HubStudio 免费版无 API) / YouTube (流程见 runbook 第 12 节). LinkedIn 公司页与 Google Business Profile 入口隐藏, 等平台审批 (spec D25). Windmill 相关发布 schedule 保持 disabled.
 
 ## 相关文档
 

@@ -226,7 +226,7 @@ HTTPS 全站; 注册开放但本地注册须邮件激活, `/api/auth/*` 限速, 
 - 上游 PR (Pinterest refresh token, b91ac78a): 草稿在 `~/STELLAR_OUTPUT/_tmp/stellarbyte-redeploy-2026-11/upstream-pr/`. 上游 `CONTRIBUTING.md` 不接受主要由 AI 生成的 PR 且需签 CLA, agent 不代提; 走 issue 或由 Harrison 改写后提交.
 - Meta 数据访问续期为年度要求, 到期前在 Meta 后台 Required actions 处理.
 
-2026-11-12 已完成: LinkedIn 个人号授权 (`Harrison Ming`), 全局账号表 `personal-linkedin` bindings 已回填. 同日还接入了 Facebook `Harrison Ming` (internalId `10231203935270220`), 全局账号表没有对应条目, 待 Harrison 确认是哪个主页后按 runbook 12.2 登记.
+2026-11-12 已完成: LinkedIn 个人号授权 (`Harrison Ming`), 全局账号表 `personal-linkedin` bindings 已回填.
 
 2026-11-07 已完成 (原第 9 节项):
 - Harrison (`harrison.vancouver@gmail.com`, Google 登录) 设 `isSuperAdmin=true`; 组织 StellarByte (`f27d1cfd-…`) 的 API key 写回 Windmill `u/harrisonvancouver/stellarbyte_api_key`, 公开 API 200. 组织 key 在注册时由服务端随机生成且未暴露过, 未再轮换.
