@@ -155,7 +155,7 @@ ssh root@161.97.184.77 'cd /root && install -m 0700 stellarbyte-signup-notify.sh
 # 补发某时刻之后的注册: stellarbyte-signup-notify.sh init 'YYYY-MM-DD HH:MM:SS' (UTC), 下一轮 timer 发出.
 ```
 
-只更新脚本时不要再跑 `init` (会把水位线重置到当前时刻, 跳过未发的注册): 只做 `install -m 0700 ... /usr/local/sbin/`, 再用 `sha256sum` 与仓库比对. 2026-11-12 核对: 服务器脚本落后仓库一版 (缺 email / org 截断 200 字符与 `init` 参数校验), 待按此方式重装; service / timer 与仓库一致.
+只更新脚本时不要再跑 `init` (会把水位线重置到当前时刻, 跳过未发的注册): 只做 `install -m 0700 ... /usr/local/sbin/`, 再用 `sha256sum` 与仓库比对. 2026-11-12 按此方式重装到仓库版 (加 email / org 截断 200 字符与 `init` 参数校验), 脚本 / service / timer 三者 sha256 与仓库一致, 水位线未变; 旧脚本留在服务器 `/root/stellarbyte-signup-notify.sh.pre-20261112`.
 
 告警演练 (不动备份数据): 用真实检查名临时缩短新鲜度窗口触发失败, 再跑正式单元恢复; #errors 应先后收到 ALERT 与 RECOVERY (2026-11-04 两个 watchdog 均已验证).
 
