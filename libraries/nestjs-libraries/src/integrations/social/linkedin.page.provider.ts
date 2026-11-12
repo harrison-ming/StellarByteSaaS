@@ -14,6 +14,14 @@ import { timer } from '@gitroom/helpers/utils/timer';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { DashboardFunction } from '@gitroom/nestjs-libraries/integrations/dashboard.function.decorator';
 
+// LinkedIn requires the Community Management API to be the only product on
+// its developer app, so pages can run on a separate app from personal profiles.
+const clientId = () =>
+  process.env.LINKEDIN_PAGE_CLIENT_ID || process.env.LINKEDIN_CLIENT_ID!;
+const clientSecret = () =>
+  process.env.LINKEDIN_PAGE_CLIENT_SECRET ||
+  process.env.LINKEDIN_CLIENT_SECRET!;
+
 @Rules(
   'LinkedIn can have maximum one attachment when selecting video, when choosing a carousel on LinkedIn minimum amount of attachment must be two, and only pictures, if uploading a video, LinkedIn can have only one attachment'
 )
@@ -26,15 +34,14 @@ export class LinkedinPageProvider
   override isBetweenSteps = true;
   override refreshWait = true;
   override maxConcurrentJob = 2; // LinkedIn Page has professional posting limits
+  // Community Management API scopes (no OpenID product on that app, so the
+  // member identity comes from /v2/me with r_basicprofile)
   override scopes = [
-    'openid',
-    'profile',
-    'email',
+    'r_basicprofile',
     'w_member_social',
-    // 'r_basicprofile', // StellarByte: not approved by LinkedIn
-    // 'rw_organization_admin', // StellarByte: requires Marketing Developer Platform
-    // 'w_organization_social',
-    // 'r_organization_social',
+    'rw_organization_admin',
+    'w_organization_social',
+    'r_organization_social',
   ];
 
   override editor = 'normal' as const;
@@ -55,31 +62,15 @@ export class LinkedinPageProvider
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token,
-          client_id: process.env.LINKEDIN_CLIENT_ID!,
-          client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+          client_id: clientId(),
+          client_secret: clientSecret(),
         }),
       })
     ).json();
 
-    const { vanityName } = await (
-      await fetch('https://api.linkedin.com/v2/me', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
-
-    const {
-      name,
-      sub: id,
-      picture,
-    } = await (
-      await fetch('https://api.linkedin.com/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
+    const { id, name, picture, vanityName } = await this.memberProfile(
+      accessToken
+    );
 
     return {
       id,
@@ -126,7 +117,7 @@ export class LinkedinPageProvider
     const state = makeSecureId(6);
     const codeVerifier = makeSecureId(30);
     const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
-      process.env.LINKEDIN_CLIENT_ID
+      clientId()
     }&redirect_uri=${encodeURIComponent(
       `${process.env.FRONTEND_URL}/integrations/social/linkedin-page`
     )}&state=${state}&scope=${encodeURIComponent(this.scopes.join(' '))}`;
@@ -134,6 +125,30 @@ export class LinkedinPageProvider
       url,
       codeVerifier,
       state,
+    };
+  }
+
+  private async memberProfile(accessToken: string) {
+    const data = await (
+      await fetch(
+        'https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,vanityName,profilePicture(displayImage~:playableStreams))',
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      )
+    ).json();
+
+    return {
+      id: data.id,
+      name: [data.localizedFirstName, data.localizedLastName]
+        .filter(Boolean)
+        .join(' '),
+      picture:
+        data?.profilePicture?.['displayImage~']?.elements?.slice(-1)?.[0]
+          ?.identifiers?.[0]?.identifier,
+      vanityName: data.vanityName,
     };
   }
 
@@ -222,8 +237,8 @@ export class LinkedinPageProvider
       'redirect_uri',
       `${process.env.FRONTEND_URL}/integrations/social/linkedin-page`
     );
-    body.append('client_id', process.env.LINKEDIN_CLIENT_ID!);
-    body.append('client_secret', process.env.LINKEDIN_CLIENT_SECRET!);
+    body.append('client_id', clientId());
+    body.append('client_secret', clientSecret());
 
     const {
       access_token: accessToken,
@@ -242,25 +257,9 @@ export class LinkedinPageProvider
 
     this.checkScopes(this.scopes, scope);
 
-    const {
-      name,
-      sub: id,
-      picture,
-    } = await (
-      await fetch('https://api.linkedin.com/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
-
-    const { vanityName } = await (
-      await fetch('https://api.linkedin.com/v2/me', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
+    const { id, name, picture, vanityName } = await this.memberProfile(
+      accessToken
+    );
 
     return {
       // namespaced placeholder so the in-between row never collides with the
