@@ -8,7 +8,7 @@ status: active
 # StellarByteSaaS
 
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
-> 最后更新: 2026-11-04
+> 最后更新: 2026-11-12
 
 ## 概述
 
@@ -18,7 +18,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 - **开源声明**: AGPL-3.0 源码地址公示在 https://stellarbyte.ca/terms/ 第 16 节 (app 界面不放署名/源码链接, spec D17 / D18)
 - **部署位置**: Contabo VPS 161.97.184.77, `/opt/stellarpostiz/`
 - **运维 runbook**: [DEPLOYMENT.md](DEPLOYMENT.md) (部署 / 升级 / 回滚 / 备份恢复 / 排障)
-- **密钥**: `STELLAR CONFIG/StellarByteSaaS/` (`.env.production` 主源, `credentials.md` 索引, `accounts.md` 组织与账号映射)
+- **密钥**: `STELLAR CONFIG/StellarByteSaaS/` (`.env.production` 主源, `credentials.md` 索引, `accounts.md` 组织与账号映射, `r2-backup.env` 备份桶 token; `.env.production.pre-*` 是每次改动前的副本, 含密钥, 回滚时不要整份拷回, 见 runbook 第 5 节)
 
 ## 架构速览
 
@@ -26,7 +26,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限速) -> 127.0.0.1:4007
 └── compose 项目 stellarbyte
     ├── stellarbyte-app       ghcr.io/harrison-ming/stellarbyte-app:<tag> (frontend + backend + Temporal worker)
-    │                     当前 stellarbyte-v2.25.3-r6, 回滚 r5; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
+    │                     当前 stellarbyte-v2.25.3-r7, 回滚 r6; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
     ├── stellarbyte-postgres  本机 Postgres 17 (库 stellarbyte / temporal / temporal_visibility)
     ├── stellarbyte-redis     Redis 7
     └── stellarbyte-temporal  Temporal 1.28 (SQL visibility)
@@ -36,6 +36,8 @@ Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限
 告警: Windmill 外部存活 + 备份 watchdog + 主机资源 -> Discord #errors; 新注册 -> #stellarbyte-signups (宿主 timer)
 登录: 邮箱 + Google (独立 client, GCP 项目 stellarbyte-scheduler-login; env GOOGLE_LOGIN_CLIENT_ID/SECRET + 开关 GOOGLE_LOGIN_ENABLED,
       不回退 YOUTUBE_*; client 文件 STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json)
+频道 client: YouTube = GCP stellar-dev (YOUTUBE_*); GMB = GCP stellarbyte-gbp (GOOGLE_GMB_*);
+      LinkedIn 个人号 = app StellarByte (LINKEDIN_*); 公司页 = app StellarByte Pages (LINKEDIN_PAGE_*); BW 指针见 credentials.md (spec D25)
 发信: app-noreply@stellarbyte.ca (Stalwart, mx.stellarbyte.ca:587)
 ```
 
@@ -86,7 +88,7 @@ Pinterest 至少要一张图; `date` 必填.
 
 ## 账号现状
 
-2026-11-12: Harrison 已注册并设超管, 组织 StellarByte 的 API key 已写回 Windmill `stellarbyte_api_key`; 已接入 Facebook Page BlessAura / Totvan 与 LinkedIn 个人号 Harrison Ming. 待授权: Pinterest (23 个可授权账号, 卡在 HubStudio 免费版无 API) / YouTube (流程见 runbook 第 12 节). LinkedIn 公司页与 Google Business Profile 入口隐藏, 等平台审批 (spec D25). Windmill 相关发布 schedule 保持 disabled.
+2026-11-12: Harrison 已注册并设超管, 组织 StellarByte 的 API key 已写回 Windmill `stellarbyte_api_key`; 已接入 Facebook Page BlessAura / Totvan / Harrison Ming (3 个) 与 LinkedIn 个人号 Harrison Ming. 待授权: Pinterest (23 个可授权账号, 卡在 HubStudio 免费版无 API) / YouTube (流程见 runbook 第 12 节). LinkedIn 公司页与 Google Business Profile 入口隐藏, 等平台审批 (spec D25). Windmill 相关发布 schedule 保持 disabled.
 
 ## 相关文档
 
