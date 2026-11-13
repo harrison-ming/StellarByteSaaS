@@ -62,14 +62,15 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
   name = 'YouTube';
   isBetweenSteps = true;
   dto = YoutubeSettingsDto;
+  // StellarByte: minimum scopes for Google OAuth verification (GCP project stellarbyte-youtube).
+  // Calls used: userinfo.get, channels.list, videos.list (readonly), resumable videos insert +
+  // thumbnails.set (upload), reports.query (yt-analytics.readonly). Keep in sync with the
+  // Data Access page and https://stellarbyte.ca/privacy/ section 6.
   scopes = [
     'https://www.googleapis.com/auth/userinfo.profile',
     'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/youtube',
-    'https://www.googleapis.com/auth/youtube.force-ssl',
     'https://www.googleapis.com/auth/youtube.readonly',
     'https://www.googleapis.com/auth/youtube.upload',
-    'https://www.googleapis.com/auth/youtubepartner',
     'https://www.googleapis.com/auth/yt-analytics.readonly',
   ];
 
