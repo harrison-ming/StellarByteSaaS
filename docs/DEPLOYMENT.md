@@ -41,11 +41,11 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 | 本机 `STELLAR CONFIG/StellarByteSaaS/.env.production` (600) | 生产 `.env` **主源**; 改动先改这里再同步到服务器 |
 | 本机 `STELLAR CONFIG/StellarByteSaaS/credentials.md` / `accounts.md` | 凭据索引 (无明文) / 组织与账号映射 |
 | 本机 `STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json` (600) | Google 登录 client (GCP 项目 `stellarbyte-scheduler-login`, spec D19); 值已进 `.env` 的 `GOOGLE_LOGIN_CLIENT_ID/SECRET` |
-| Bitwarden | OAuth: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, YouTube `cfc8d358-…` (只用于频道授权); Google 登录 client `StellarByte Google OAuth - stellarbyte-scheduler-login`; GMB client `StellarByte Google OAuth - stellarbyte-gbp` `e06cff8b-…`; LinkedIn 公司页 app `LinkedIn App - StellarByte Pages` `c01a564c-…` (后两条 2026-11-12 写入, 映射表见 `credentials.md`) |
+| Bitwarden | OAuth: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, YouTube 旧 client `cfc8d358-…` (stellar-dev, r8 起不再使用; 新 client `stellarbyte-youtube` 的 JSON 在 `STELLAR CONFIG/StellarByteSaaS/youtube-oauth-client-stellarbyte-youtube.json`, BW 条目待建); Google 登录 client `StellarByte Google OAuth - stellarbyte-scheduler-login`; GMB client `StellarByte Google OAuth - stellarbyte-gbp` `e06cff8b-…`; LinkedIn 公司页 app `LinkedIn App - StellarByte Pages` `c01a564c-…` (后两条 2026-11-12 写入, 映射表见 `credentials.md`) |
 
 ## 3. 部署 / 更新镜像 tag
 
-tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管; r6 去掉 app 内署名/源码链接, 独立 Google 登录 client + 按已验证邮箱关联本地账号, 开放注册; r7 LinkedIn 公司页改用 CMA 权限与独立 app 变量, 隐藏 gmb). **当前线上 r7, 回滚目标 r6** (r6 / r5 / r4 镜像保留; 回滚只改 tag, 见第 5 节).
+tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增 (r2 首个可用镜像; r3 隐藏 Google 登录; r4 Pinterest refresh token 修复; r5 无计费不加载 Stripe.js + 国旗图标自托管; r6 去掉 app 内署名/源码链接, 独立 Google 登录 client + 按已验证邮箱关联本地账号, 开放注册; r7 LinkedIn 公司页改用 CMA 权限与独立 app 变量, 隐藏 gmb; r8 YouTube 频道授权收窄到 5 个 scope, `YOUTUBE_CLIENT_*` 换成 GCP `stellarbyte-youtube` 的 client). **当前线上 r8 (2026-11-13), 回滚目标 r7** (r7 / r6 / r5 / r4 镜像保留; 回滚只改 tag, 见第 5 节).
 
 ```bash
 # 0. 本机: 打 tag 推送, 等 CI "Build StellarByte image" 成功
@@ -78,7 +78,7 @@ worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --
 
 ## 5. 回滚
 
-- **只回滚 app**: 在当前 `.env` 上只把 `STELLARBYTE_TAG` 改回上一 tag (同第 3 节的 `sed`, 本机主源同改), `docker compose up -d --no-deps app`. 上一版镜像在服务器上保留 (当前 r6 / r5 / r4), 不要在验收前 prune. **不要整份 `cp .env.pre-*`**: 副本只代表当时那一刻, 会丢掉之后加的变量 (例: `.env.pre-r7` 没有 2026-11-12 加的 `GOOGLE_GMB_*` / `LINKEDIN_PAGE_*`, GMB 会回退到 stellar-dev 的 YouTube client; `.env.pre-r6` 还缺 `FACEBOOK_APP_*` / `GOOGLE_LOGIN_CLIENT_*`, `HIDDEN_PROVIDERS` 只有 `linkedin-page`, 且 `DISABLE_REGISTRATION="true"`). **r7 → r6**: 只改 tag; r6 不认 `LINKEDIN_PAGE_*`, 公司页入口本就隐藏, 无影响. **r6 → r5**: 改 tag 并设 `GOOGLE_LOGIN_ENABLED="false"` (r5 的 Google 登录读 `YOUTUBE_CLIENT_*`). 沿用当前 compose 即可 (`docker-compose.yml.pre-r6` 不必还原).
+- **只回滚 app**: 在当前 `.env` 上只把 `STELLARBYTE_TAG` 改回上一 tag (同第 3 节的 `sed`, 本机主源同改), `docker compose up -d --no-deps app`. 上一版镜像在服务器上保留 (当前 r6 / r5 / r4), 不要在验收前 prune. **不要整份 `cp .env.pre-*`**: 副本只代表当时那一刻, 会丢掉之后加的变量 (例: `.env.pre-r7` 没有 2026-11-12 加的 `GOOGLE_GMB_*` / `LINKEDIN_PAGE_*`, GMB 会回退到 stellar-dev 的 YouTube client; `.env.pre-r6` 还缺 `FACEBOOK_APP_*` / `GOOGLE_LOGIN_CLIENT_*`, `HIDDEN_PROVIDERS` 只有 `linkedin-page`, 且 `DISABLE_REGISTRATION="true"`). **r8 → r7**: 改 tag 即可; r7 会按 8 个 scope 发起授权, 但新 client 的同意屏只登记了 5 个, 回滚后新连 YouTube 前先把 `YOUTUBE_CLIENT_*` 换回 stellar-dev 的值 (`.env.pre-r8` 里有). **r7 → r6**: 只改 tag; r6 不认 `LINKEDIN_PAGE_*`, 公司页入口本就隐藏, 无影响. **r6 → r5**: 改 tag 并设 `GOOGLE_LOGIN_ENABLED="false"` (r5 的 Google 登录读 `YOUTUBE_CLIENT_*`). 沿用当前 compose 即可 (`docker-compose.yml.pre-r6` 不必还原).
 - **数据库也要回滚** (上游 schema 变更): 停 app -> 用升级前的 dump 恢复 (第 6.3 节) -> 起旧 tag. `prisma db push` 每次启动都会跑, 不可逆的列删除只能靠 dump 恢复.
 
 ## 6. 备份与恢复

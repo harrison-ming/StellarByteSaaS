@@ -36,7 +36,7 @@ Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限
 告警: Windmill 外部存活 + 备份 watchdog + 主机资源 -> Discord #errors; 新注册 -> #stellarbyte-signups (宿主 timer)
 登录: 邮箱 + Google (独立 client, GCP 项目 stellarbyte-scheduler-login; env GOOGLE_LOGIN_CLIENT_ID/SECRET + 开关 GOOGLE_LOGIN_ENABLED,
       不回退 YOUTUBE_*; client 文件 STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json)
-频道 client: YouTube = GCP stellar-dev (YOUTUBE_*); GMB = GCP stellarbyte-gbp (GOOGLE_GMB_*);
+频道 client: YouTube = GCP stellarbyte-youtube (YOUTUBE_*, r8 起, 2026-11-13; 之前是 stellar-dev); GMB = GCP stellarbyte-gbp (GOOGLE_GMB_*);
       LinkedIn 个人号 = app StellarByte (LINKEDIN_*); 公司页 = app StellarByte Pages (LINKEDIN_PAGE_*); BW 指针见 credentials.md (spec D25)
 发信: app-noreply@stellarbyte.ca (Stalwart, mx.stellarbyte.ca:587)
 ```
