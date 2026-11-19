@@ -8,7 +8,7 @@ status: active
 # StellarByteSaaS
 
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
-> 最后更新: 2026-11-12
+> 最后更新: 2026-11-19
 
 ## 概述
 
@@ -18,7 +18,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 - **开源声明**: AGPL-3.0 源码地址公示在 https://stellarbyte.ca/terms/ 第 16 节 (app 界面不放署名/源码链接, spec D17 / D18)
 - **部署位置**: Contabo VPS 161.97.184.77, `/opt/stellarpostiz/`
 - **运维 runbook**: [DEPLOYMENT.md](DEPLOYMENT.md) (部署 / 升级 / 回滚 / 备份恢复 / 排障)
-- **密钥**: `STELLAR CONFIG/StellarByteSaaS/` (`.env.production` 主源, `credentials.md` 索引, `accounts.md` 组织与账号映射, `r2-backup.env` 备份桶 token; `.env.production.pre-*` 是每次改动前的副本, 含密钥, 回滚时不要整份拷回, 见 runbook 第 5 节)
+- **密钥**: `STELLAR CONFIG/StellarByteSaaS/` (`.env.production` 为生产 `.env` 主源, `credentials.md` 为 BW 映射索引); 文件清单与 `.env.production.pre-*` 副本用法见 runbook 第 2 / 5 节. 组织与频道映射见 [integrations.md](integrations.md)
 
 ## 架构速览
 
@@ -26,7 +26,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限速) -> 127.0.0.1:4007
 └── compose 项目 stellarbyte
     ├── stellarbyte-app       ghcr.io/harrison-ming/stellarbyte-app:<tag> (frontend + backend + Temporal worker)
-    │                     当前 stellarbyte-v2.25.3-r7, 回滚 r6; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
+    │                     当前 stellarbyte-v2.25.3-r8, 回滚 r7; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
     ├── stellarbyte-postgres  本机 Postgres 17 (库 stellarbyte / temporal / temporal_visibility)
     ├── stellarbyte-redis     Redis 7
     └── stellarbyte-temporal  Temporal 1.28 (SQL visibility)
@@ -34,10 +34,8 @@ Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限
 媒体: R2 stellar-postiz -> https://media.stellarbyte.ca
 备份: 每日 pg_dump -> 本地 + R2 stellarbyte-backups (本地与离机恢复演练均通过)
 告警: Windmill 外部存活 + 备份 watchdog + 主机资源 -> Discord #errors; 新注册 -> #stellarbyte-signups (宿主 timer)
-登录: 邮箱 + Google (独立 client, GCP 项目 stellarbyte-scheduler-login; env GOOGLE_LOGIN_CLIENT_ID/SECRET + 开关 GOOGLE_LOGIN_ENABLED,
-      不回退 YOUTUBE_*; client 文件 STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json)
-频道 client: YouTube = GCP stellarbyte-youtube (YOUTUBE_*, r8 起, 2026-11-13; 之前是 stellar-dev); GMB = GCP stellarbyte-gbp (GOOGLE_GMB_*);
-      LinkedIn 个人号 = app StellarByte (LINKEDIN_*); 公司页 = app StellarByte Pages (LINKEDIN_PAGE_*); BW 指针见 credentials.md (spec D25)
+登录: 邮箱 + Google (独立 client, GCP stellarbyte-scheduler-login, spec D19; 详见 runbook 12.1)
+频道 client: 各平台 app / 环境变量 / 回调见 runbook 12.2, BW 指针见 credentials.md
 发信: app-noreply@stellarbyte.ca (Stalwart, mx.stellarbyte.ca:587)
 ```
 
@@ -46,8 +44,10 @@ app 不再使用 Supabase (spec D4; 旧 `postiz` schema 已于 2026-09-08 删除
 ## Public API
 
 - **Base URL**: `https://app.stellarbyte.ca/api/public/v1`
-- **认证**: header `Authorization: <组织 API key>`; key 存 Windmill secret 变量 `u/harrisonvancouver/stellarbyte_api_key`
-- **组织 id**: 见 `STELLAR CONFIG/StellarByteSaaS/accounts.md`
+- **认证**: header `Authorization: <组织 API key>`; key 存放与轮换见 [DEPLOYMENT.md](DEPLOYMENT.md) 第 1 节
+- **组织 id**: 见 [integrations.md](integrations.md) 第 2 节
+
+常用端点 (完整列表见 `apps/backend/src/public-api/routes/v1/public.integrations.controller.ts`):
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
@@ -84,14 +84,14 @@ curl -X POST \
   https://app.stellarbyte.ca/api/public/v1/posts
 ```
 
-Pinterest 至少要一张图; `date` 必填.
+Pinterest 限制 (`pinterest.provider.ts` / `pinterest.dto.ts`): 至少 1 个媒体, 图片最多 5 张, 视频须恰好 2 个附件 (视频 + 封面); 描述 <= 500 字符, title <= 100; `board` 必填且为纯数字. 请求体 `date` 必填.
 
 ## 账号现状
 
-2026-11-12: Harrison 已注册并设超管, 组织 StellarByte 的 API key 已写回 Windmill `stellarbyte_api_key`; 已接入 Facebook Page BlessAura / Totvan 与 LinkedIn 个人号 Harrison Ming. 待授权: Pinterest (23 个可授权账号, 卡在 HubStudio 免费版无 API) / YouTube (流程见 runbook 第 12 节). LinkedIn 公司页与 Google Business Profile 入口隐藏, 等平台审批 (spec D25). Windmill 相关发布 schedule 保持 disabled.
+组织, 已接入频道与待接入清单只记在 [integrations.md](integrations.md) 第 3 节; 授权流程与 Pinterest 前置条件见 runbook 12.2-12.3 节.
 
 ## 相关文档
 
 - 主机文档: `STELLAR INFRA/machines/contabo/StellarPostiz/README.md`, `STELLAR INFRA/machines/contabo/vps-161.97.184.77.md`
 - Pinterest 平台运营: `STELLAR INFRA/platforms/pinterest/`
-- Windmill 发布工作流: `STELLAR CONFIG/Windmill/pinterest/`
+- Windmill 发布工作流: 代码 `host/Windmill/pinterest/` (flows / scripts), 说明 `STELLAR CONFIG/Windmill/pinterest/README.md`
