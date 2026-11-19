@@ -810,7 +810,9 @@ export class IntegrationRepository {
     });
   }
 
-  deleteChannel(org: string, id: string) {
+  // clearTokens: the provider revokes its grant on delete, the stored tokens
+  // must not be kept with the soft-deleted row
+  deleteChannel(org: string, id: string, clearTokens = false) {
     return this._integration.model.integration.update({
       select: {
         id: true,
@@ -821,6 +823,26 @@ export class IntegrationRepository {
       },
       data: {
         deletedAt: new Date(),
+        ...(clearTokens ? { token: '', refreshToken: null } : {}),
+      },
+    });
+  }
+
+  // Live channels (any organization) signed in through the same account,
+  // leaving out an organization that is being deleted as a whole
+  countActiveByAccount(
+    providerIdentifier: string,
+    accountId: string,
+    excludeId: string,
+    excludeOrg?: string
+  ) {
+    return this._integration.model.integration.count({
+      where: {
+        providerIdentifier,
+        deletedAt: null,
+        id: { not: excludeId },
+        ...(excludeOrg ? { organizationId: { not: excludeOrg } } : {}),
+        OR: [{ rootInternalId: accountId }, { internalId: accountId }],
       },
     });
   }

@@ -398,7 +398,74 @@ export class IntegrationService {
   }
 
   async deleteChannel(org: string, id: string) {
-    return this._integrationRepository.deleteChannel(org, id);
+    const integration = await this._integrationRepository.getIntegrationById(
+      org,
+      id
+    );
+    const clearTokens = integration
+      ? await this.revokeChannelToken(integration)
+      : false;
+    return this._integrationRepository.deleteChannel(org, id, clearTokens);
+  }
+
+  // Account deletion: end the platform grants before the organization's
+  // channels are removed. Channels sharing one account are revoked once, and
+  // only the other organizations' channels count as still using it.
+  async revokeOrganizationTokens(org: string) {
+    const seen = new Set<string>();
+    for (const integration of await this._integrationRepository.getIntegrationsList(
+      org
+    )) {
+      const account = `${integration.providerIdentifier}:${
+        integration.rootInternalId || integration.internalId
+      }`;
+      if (seen.has(account)) {
+        continue;
+      }
+      seen.add(account);
+      await this.revokeChannelToken(integration, org);
+    }
+  }
+
+  // Platforms that require the grant to end with the channel (YouTube API
+  // policy) implement revokeToken. Returns true when the provider does: the
+  // stored tokens must not outlive the channel then, even when the platform
+  // call failed. A failure never blocks the delete.
+  private async revokeChannelToken(
+    integration: Integration,
+    deletingOrg?: string
+  ) {
+    const provider = this._integrationManager.getSocialIntegration(
+      integration.providerIdentifier
+    );
+    if (!provider?.revokeToken) {
+      return false;
+    }
+
+    try {
+      // The grant belongs to the signed-in account (rootInternalId, e.g. the
+      // Google user behind several YouTube channels), not to this row: keep it
+      // while another live channel in any organization still uses it
+      const shared = await this._integrationRepository.countActiveByAccount(
+        integration.providerIdentifier,
+        integration.rootInternalId || integration.internalId,
+        integration.id,
+        deletingOrg
+      );
+      if (!shared && integration.token) {
+        await provider.revokeToken(
+          integration.token,
+          integration.refreshToken || undefined
+        );
+      }
+    } catch (err) {
+      console.error(
+        `Could not revoke the ${
+          integration.providerIdentifier
+        } token of channel ${integration.id}: ${(err as Error)?.message || err}`
+      );
+    }
+    return true;
   }
 
   async disableIntegrations(org: string, totalChannels: number) {

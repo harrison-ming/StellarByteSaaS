@@ -306,6 +306,13 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
+  async revokeToken(accessToken: string, refreshToken?: string) {
+    const { client } = clientAndYoutube();
+    // Revoking the refresh token ends the whole grant, an access token only itself
+    await client.revokeToken(refreshToken || accessToken);
+    return true;
+  }
+
   async generateAuthUrl() {
     const state = makeSecureId(7);
     const { client } = clientAndYoutube();

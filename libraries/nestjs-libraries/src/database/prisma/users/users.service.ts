@@ -6,6 +6,7 @@ import { EmailNotificationsDto } from '@gitroom/nestjs-libraries/dtos/users/emai
 import { TimezoneDto } from '@gitroom/nestjs-libraries/dtos/users/timezone.dto';
 import { OrganizationRepository } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.repository';
 import { IntegrationRepository } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.repository';
+import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 
 @Injectable()
@@ -14,7 +15,8 @@ export class UsersService {
     private _usersRepository: UsersRepository,
     private _organizationRepository: OrganizationRepository,
     private _integrationRepository: IntegrationRepository,
-    private _notificationService: NotificationService
+    private _notificationService: NotificationService,
+    private _integrationService: IntegrationService
   ) {}
 
   private readonly _logger = new Logger(UsersService.name);
@@ -134,6 +136,7 @@ export class UsersService {
           }
         }
 
+        await this._integrationService.revokeOrganizationTokens(org.id);
         await this._integrationRepository.deleteIntegrationsForAccount(org.id);
         await this._organizationRepository.deleteOrganization(org.id);
       } else {

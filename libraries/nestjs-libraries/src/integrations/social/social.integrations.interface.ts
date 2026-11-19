@@ -65,6 +65,7 @@ export interface IAuthenticator {
     id: string,
     accessToken: string
   ): Promise<{ id: string; url: string }[]>;
+  revokeToken?(accessToken: string, refreshToken?: string): Promise<boolean>; // Ends the platform grant when the channel is deleted
 }
 
 export interface AnalyticsData {
