@@ -30,7 +30,7 @@ supersedes: STELLAR CONFIG/StellarByteSaaS/accounts.md
 ## 3. 已接入与待接入 (2026-11-19)
 
 - 已接入 (组织 StellarByte): Facebook Page `blessaura-facebook`, `totvan-facebook` (2026-11-07); LinkedIn 个人 `personal-linkedin` (2026-11-12); LinkedIn 公司页 `stellarbyte-linkedin` (StellarByte Technology Ltd., 2026-11-19); YouTube `easternblessing-youtube-2` (神機君, 2026-11-19, unlisted 上传实测未被锁).
-- 待接入: TikTok (app 2026-11-17 已配置上线, 尚无已授权账号, 见 DEPLOYMENT.md 12.2); Pinterest (4 个 publisher 映射见下, 全部待重新授权); Google Business Profile 入口隐藏, 等平台审批 (spec D25).
+- 待接入: TikTok (app 2026-11-17 已配置上线, 尚无已授权账号, 见 DEPLOYMENT.md 12.2); Threads (app 2026-11-19 已配置上线, 未提审只能授权 Threads Testers, 尚无已授权账号); Pinterest (4 个 publisher 映射见下, 全部待重新授权); Google Business Profile 入口隐藏, 等平台审批 (spec D25).
 - 授权前所有 Pinterest / agent_flow 发布 schedule 保持 disabled.
 
 ## 4. Pinterest 发布映射
