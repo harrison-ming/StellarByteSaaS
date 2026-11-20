@@ -7,7 +7,9 @@ import {
   Param,
   Post,
   UseFilters,
+  UseInterceptors,
 } from '@nestjs/common';
+import { NoFilesInterceptor } from '@nestjs/platform-express';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import { ConnectIntegrationDto } from '@gitroom/nestjs-libraries/dtos/integrations/connect.integration.dto';
 import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
@@ -45,9 +47,11 @@ export class NoAuthIntegrationsController {
   }
 
   // Called by the platform (Meta "Uninstall Callback URL") when a user removes
-  // the app from their account
+  // the app from their account. Meta posts it as multipart/form-data (the
+  // delete callback as urlencoded), so both accept form fields without files
   @Post('/platform-callback/:integration/deauthorize')
   @HttpCode(200)
+  @UseInterceptors(NoFilesInterceptor())
   async platformDeauthorize(
     @Param('integration') integration: string,
     @Body() body: PlatformCallbackDto
@@ -73,6 +77,7 @@ export class NoAuthIntegrationsController {
   // their data to be deleted: same cleanup as deleting the channel in the app
   @Post('/platform-callback/:integration/delete')
   @HttpCode(200)
+  @UseInterceptors(NoFilesInterceptor())
   async platformDataDeletion(
     @Param('integration') integration: string,
     @Body() body: PlatformCallbackDto
