@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpException,
   Param,
   Post,
@@ -24,6 +25,8 @@ import {
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
 import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
+import { PlatformCallbackDto } from '@gitroom/nestjs-libraries/dtos/integrations/platform.callback.dto';
+import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -32,12 +35,74 @@ export class NoAuthIntegrationsController {
     private _integrationManager: IntegrationManager,
     private _integrationService: IntegrationService,
     private _refreshIntegrationService: RefreshIntegrationService,
-    private _organizationService: OrganizationService
+    private _organizationService: OrganizationService,
+    private _postService: PostsService
   ) {}
 
   @Get('/')
   getIntegrations() {
     return this._integrationManager.getAllIntegrations();
+  }
+
+  // Called by the platform (Meta "Uninstall Callback URL") when a user removes
+  // the app from their account
+  @Post('/platform-callback/:integration/deauthorize')
+  @HttpCode(200)
+  async platformDeauthorize(
+    @Param('integration') integration: string,
+    @Body() body: PlatformCallbackDto
+  ) {
+    const channels = await this._integrationService.getPlatformCallbackChannels(
+      integration,
+      body.signed_request
+    );
+    if (channels === false) {
+      throw new HttpException('Invalid request', 400);
+    }
+    for (const channel of channels) {
+      await this._integrationService.revokedByPlatform(
+        channel.organizationId,
+        channel.id,
+        integration
+      );
+    }
+    return { success: true };
+  }
+
+  // Called by the platform (Meta "Delete Callback URL") when a user asks for
+  // their data to be deleted: same cleanup as deleting the channel in the app
+  @Post('/platform-callback/:integration/delete')
+  @HttpCode(200)
+  async platformDataDeletion(
+    @Param('integration') integration: string,
+    @Body() body: PlatformCallbackDto
+  ) {
+    const channels = await this._integrationService.getPlatformCallbackChannels(
+      integration,
+      body.signed_request
+    );
+    if (channels === false) {
+      throw new HttpException('Invalid request', 400);
+    }
+    for (const channel of channels) {
+      const posts = await this._integrationService.getPostsForChannel(
+        channel.organizationId,
+        channel.id
+      );
+      for (const post of posts) {
+        this._postService
+          .deletePost(channel.organizationId, post.group)
+          .catch((err) => {});
+      }
+      await this._integrationService.deletedByPlatform(
+        channel.organizationId,
+        channel.id
+      );
+    }
+    return this._integrationService.dataDeletionConfirmation(
+      integration,
+      channels.length
+    );
   }
 
   @Post('/social-connect/:integration')

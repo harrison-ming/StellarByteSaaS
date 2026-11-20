@@ -66,6 +66,7 @@ export interface IAuthenticator {
     accessToken: string
   ): Promise<{ id: string; url: string }[]>;
   revokeToken?(accessToken: string, refreshToken?: string): Promise<boolean>; // Ends the platform grant when the channel is deleted
+  platformCallbackAccount?(signedRequest: string): Promise<string | false>; // Verifies a signed deauthorize / data deletion callback from the platform and returns the account id (internalId) it is about
 }
 
 export interface AnalyticsData {

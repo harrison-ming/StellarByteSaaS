@@ -15,6 +15,7 @@ import { Integration, Organization } from '@prisma/client';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import dayjs from 'dayjs';
 import { timer } from '@gitroom/helpers/utils/timer';
+import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import {
   NotEnoughScopes,
@@ -425,6 +426,68 @@ export class IntegrationService {
       seen.add(account);
       await this.revokeChannelToken(integration, org);
     }
+  }
+
+  // Deauthorize / data deletion callbacks sent by the platform (Meta apps).
+  // Only providers that verify the platform signature implement
+  // platformCallbackAccount; an unverified request gets false and changes
+  // nothing. Returns the live channels (any organization) of that account.
+  async getPlatformCallbackChannels(
+    providerIdentifier: string,
+    signedRequest?: string
+  ) {
+    const provider =
+      this._integrationManager.getSocialIntegration(providerIdentifier);
+    if (!provider?.platformCallbackAccount || !signedRequest) {
+      return false;
+    }
+
+    const accountId = await provider.platformCallbackAccount(signedRequest);
+    if (!accountId) {
+      return false;
+    }
+
+    return this._integrationRepository.getActiveByAccount(
+      providerIdentifier,
+      accountId
+    );
+  }
+
+  // The user removed the app on the platform: the grant is gone, drop the
+  // tokens and ask for a reconnect
+  async revokedByPlatform(
+    org: string,
+    id: string,
+    providerIdentifier: string
+  ) {
+    await this._integrationRepository.revokedByPlatform(org, id);
+    await this._notificationService.inAppNotification(
+      org,
+      `Your ${providerIdentifier} channel was disconnected`,
+      `The app was removed from your ${providerIdentifier} account. Please connect the channel again ${process.env.FRONTEND_URL}/launches`,
+      true,
+      false,
+      'info'
+    );
+  }
+
+  // The user asked the platform to delete their data; the platform already
+  // ended the grant, so there is nothing to revoke
+  deletedByPlatform(org: string, id: string) {
+    return this._integrationRepository.deleteChannel(org, id, true);
+  }
+
+  // Meta expects a status URL and a confirmation code. The code is not
+  // stored: it is logged so a user who quotes it can be matched in the logs
+  dataDeletionConfirmation(providerIdentifier: string, channels: number) {
+    const confirmationCode = makeId(12);
+    console.log(
+      `Data deletion callback for ${providerIdentifier}: ${channels} channel(s) deleted, confirmation ${confirmationCode}`
+    );
+    return {
+      url: process.env.DATA_DELETION_URL || process.env.FRONTEND_URL,
+      confirmation_code: confirmationCode,
+    };
   }
 
   // Platforms that require the grant to end with the channel (YouTube API

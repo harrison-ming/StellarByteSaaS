@@ -828,6 +828,41 @@ export class IntegrationRepository {
     });
   }
 
+  // Live channels (any organization) of one platform account, for platform
+  // callbacks that name the account rather than a channel
+  getActiveByAccount(providerIdentifier: string, accountId: string) {
+    return this._integration.model.integration.findMany({
+      select: {
+        id: true,
+        organizationId: true,
+      },
+      where: {
+        providerIdentifier,
+        deletedAt: null,
+        OR: [{ rootInternalId: accountId }, { internalId: accountId }],
+      },
+    });
+  }
+
+  // The platform grant is gone (deauthorize callback): stop using the stored
+  // tokens and ask the user to reconnect
+  revokedByPlatform(org: string, id: string) {
+    return this._integration.model.integration.update({
+      select: {
+        id: true,
+      },
+      where: {
+        id,
+        organizationId: org,
+      },
+      data: {
+        refreshNeeded: true,
+        token: '',
+        refreshToken: null,
+      },
+    });
+  }
+
   // Live channels (any organization) signed in through the same account,
   // leaving out an organization that is being deleted as a whole
   countActiveByAccount(
