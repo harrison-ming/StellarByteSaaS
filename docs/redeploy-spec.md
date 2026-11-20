@@ -17,7 +17,7 @@ status: active
 - **保留**: Harrison 原有的 StellarByte 品牌改动 (纯前端), 并覆盖新版新增的品牌露出.
 - **可持续**: 以后每个上游正式版都能按第 4 节流程低成本跟进.
 - **不影响其他项目**: Contabo 上的 Stalwart 邮件 (16 域名 / 41 账号, 2026-11-03 实测) 与 Listmonk 是生产服务, 第 5 节约束是硬性的.
-- **不在本期范围**: Instagram (`instagram_*` 权限未提审), Chrome 扩展, 计费. (开放注册自 r6 起纳入, 见 D21; Facebook Page 自 2026-11-07 起纳入, 见 D24; TikTok 自 2026-11-17 起 app 配置上线, 无代码改动, 尚无已授权账号 (runbook 12.2); LinkedIn 公司主页自 2026-11-19 起纳入 (CMA Development tier 获批), Google Business Profile 自 r7 起代码与配置就位, 等平台审批, 见 D25.)
+- **不在本期范围**: Instagram (`instagram_*` 权限未提审), Chrome 扩展, 计费. (开放注册自 r6 起纳入, 见 D21; Facebook Page 自 2026-11-07 起纳入, 见 D24; TikTok 自 2026-11-17 起 app 配置上线, 无代码改动, 尚无已授权账号 (runbook 12.2); LinkedIn 公司主页自 2026-11-19 起纳入 (CMA Development tier 获批); Threads 自 2026-11-19 起 app 配置上线, 无代码改动, 未提审只能授权 Threads Testers (runbook 12.2); Google Business Profile 自 r7 起代码与配置就位, 等平台审批, 见 D25.)
 
 ## 2. 已确定的决策
 
@@ -169,7 +169,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 | 4 账号与连带 | Pinterest (全部可授权账号) / LinkedIn 个人 / YouTube 授权; 第 6 节各项 | 每个 provider 至少一个账号授权成功; token 续期机制就位 (Pinterest: `refreshTokenWorkflow` 已注册; LinkedIn / YouTube: 上游等价机制 = 发帖时按需刷新, 无独立工作流) |
 | 5 文档 | 第 10 节文档清单全部更新; DEPLOYMENT.md 改写为 Contabo runbook | `doc-check` 无陈旧项 |
 
-### 7.1 执行结果 (2026-11-03 至 2026-11-19)
+### 7.1 执行结果 (2026-11-03 至 2026-11-20)
 
 逐项证据记录在 `~/STELLAR_OUTPUT/_tmp/stellarbyte-redeploy-2026-11/progress.md` (按阶段分节; 临时目录, 截图与演练输出同目录).
 
@@ -179,7 +179,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 | 1 | 完成 | `stellarbyte` 分支补丁 commit 见 `git log v2.25.3..stellarbyte`; `apply-brand --check` 34/34, 残留 0; 本机 `pnpm build` 通过 |
 | 2 | 完成 | 本机 compose 4/4 healthy, Temporal SQL visibility 一次通过 (D5 无需退路); 常驻约 1.75G; 恢复演练通过. 偏差: 本机子网改 `STELLARBYTE_SUBNET` 可配 |
 | 3 | 完成 | Contabo 上线, 端口扫描 / 出站 25 拦截 / Stalwart 健康 16/16 / 备份 + R2 回读 + 恢复演练 / Discord 存活告警均通过; 8.3 的 "24h 无 OOM" 已复核: 截至 2026-11-07 运行约 4.6 天, `oom_kill` 0, 全部容器 0 次重启, 可用内存约 5.2G, stalwart-health 16/16 |
-| 4 | 部分完成 | 完成: 积压 112 条导出并删除; 组织 API key 写回 Windmill secret (r6 删旧组织后旧 key 失效, 2026-11-07 写入组织 StellarByte 的 key, D22); 7 个脚本核对 (修 2 个); redirect URI 核对 (LinkedIn / Google 登录 / YouTube `stellarbyte-youtube` 已登记, Pinterest 待首次授权验证); r3 / r4 上线. 已授权: Facebook Page BlessAura / Totvan (2026-11-07), LinkedIn 个人号 (2026-11-12), LinkedIn 公司页与 YouTube 神機君 (2026-11-19). **待执行** (第 9 节): Pinterest 授权 (由 app-ops 执行, D26) / YouTube Google 验证审核中 / TikTok 授权 (app 2026-11-17 已配置, 尚无账号, runbook 12.2) |
+| 4 | 部分完成 | 完成: 积压 112 条导出并删除; 组织 API key 写回 Windmill secret (r6 删旧组织后旧 key 失效, 2026-11-07 写入组织 StellarByte 的 key, D22); 7 个脚本核对 (修 2 个); redirect URI 核对 (LinkedIn / Google 登录 / YouTube `stellarbyte-youtube` 已登记, Pinterest 待首次授权验证); r3 / r4 上线. 已授权: Facebook Page BlessAura / Totvan (2026-11-07), LinkedIn 个人号 (2026-11-12), LinkedIn 公司页与 YouTube 神機君 (2026-11-19), Threads @accessory.ocean (2026-11-20, Threads Tester). **待执行** (第 9 节): Pinterest 授权 (由 app-ops 执行, D26) / YouTube Google 验证审核中 / TikTok 授权 (app 2026-11-17 已配置, 尚无账号, runbook 12.2) |
 | 5 | 完成 | runbook [DEPLOYMENT.md](DEPLOYMENT.md) 改写, `config-readme.md` / README 更新, 第 10 节跨仓库文档同步 (各仓库本地 commit) |
 | 跟进 C (主机) | 完成 | DOCKER-USER 规则重放幂等; 清理遗留镜像与匿名卷 (根盘 31% → 15%); Stalwart 冷备份上线 (本地 + 私有 R2 `stalwart-backups`, 停机约 8 秒) 并恢复演练 41 账号 / 16 域名一致 |
 | 跟进 E (加固与演练) | 完成 | nginx 安全头 + 登录限速 (连续错误密码第 6 次起 429, 约 1 分钟恢复; listmonk-api / smtp-admin 与上线前快照一致); 两个备份 watchdog 告警演练 (ALERT + RECOVERY 到 #errors); `host-resource-check.timer` 上线并 self-test; 从 R2 下载的离机恢复演练 88 表一致; 外部安全检查见第 11 节. stalwart-health 前后 16/16 |
@@ -188,11 +188,14 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 | r7 (2026-11-12, D25) | 完成 (LinkedIn 公司页入口 2026-11-19 放开, GMB 仍隐藏) | commit 4edfccf1, tag `stellarbyte-v2.25.3-r7`, 镜像 CI run 43192067794 与 Build run 43192067222 均 success. 只改 `linkedin.page.provider.ts` + env 模板 (根 `.env.example`, `deploy/contabo/.env.example`, 根 `docker-compose.yaml`). 生产: 上线前备份 success, stalwart-health 前后 16/16; 两边 `.env` 改 `STELLARBYTE_TAG` 与 `HIDDEN_PROVIDERS` (加 `gmb`), 副本 `.env.pre-r7` (服务器) / `.env.production.pre-r7` (本机); app 约 2 分钟 healthy, worker workflow + activity 在线, 登录页 200. 影响面: 生产库无 linkedin-page / gmb / youtube integration (上线前查询: facebook 3, linkedin 1). GCP: stellar-dev 的 `StellarByte SaaS App` client 曾临时加回调 `/integrations/social/gmb` (修截图里的 `redirect_uri_mismatch`; 专用 client 就位后已于 2026-11-12 删除); 新项目 `stellarbyte-gbp` 已建并启用 Account Management / Business Information / Performance 三个 API (`mybusiness.googleapis.com` v4 是私有 API, 获批前无法启用). 回滚: 只把 tag 改回 r6 (不要整份 cp `.env.pre-r7`, 见 runbook 第 5 节) |
 | r8 (2026-11-13) | 完成 | commit 88ec40ed, tag `stellarbyte-v2.25.3-r8`, 镜像 CI run 43492162400 success. 只改 `youtube.provider.ts` scope (去掉 youtube / force-ssl / youtubepartner) 与生产 `.env` 的 `YOUTUBE_CLIENT_*` (换成 GCP `stellarbyte-youtube` 的 Web client, 为该项目的 OAuth 敏感 scope 验证准备). 上线前生产库无 YouTube integration, 不影响现有连接. 上线前备份 + 验收: healthy, 登录页 200, Temporal pollers, stalwart 16/16. 首次 pull 中途被 ghcr 重置连接, 重试成功 |
 | r9 (2026-11-19) | 完成 | commit d216431e, tag `stellarbyte-v2.25.3-r9`, CI run 44605226808 success. IAuthenticator 加可选 `revokeToken`, YouTube 用 google-auth-library 作废; 删除频道与删除账号时作废授权 (按 Google 账号去重, 其他组织仍在用时跳过), 支持作废的 provider 删除后清空 token. Codex 交叉审计 3 轮 (P1 均已修或接受为剩余风险). 生产: 上线前备份, ghcr IPv6 拉镜像被重置, 临时 /etc/hosts 走 IPv4 拉取后已还原; app 约 80s healthy, worker 在线, stalwart-health 0 失败. 实测: 基本透明连上后经界面删除, Google 已关联应用里 YouTube 权限消失, 库内 token 已清空 |
-| 授权长期可用 (2026-11-14 规划) | 待执行 | 代码核实 token 明文存储, 刷新工作流只在连接时启动且一次失败即退出; 定下运维红线 (不删组织 / 不换已有频道所用的 app 或 OAuth client 与 `FRONTEND_URL` / 不用空库重建 / 三库一起恢复) 与待办 (恢复演练, 备份 age 加密, r10 刷新补丁, watchdog 告警, 首号刷新核对), 唯一清单见 runbook 12.3 节. 授权操作员 app-ops 见 D26 |
+| 2026-11-20 (Threads) | 完成 (仅测试者) | 被封的个人 IG 号不能用, 改用 `accessoryocean-threads` (@accessory.ocean, 品牌 AccessoryOcean): 加为 Threads Tester 并接受, 在 `harrison-personal` 授权进组织 StellarByte (integration `cmwoaxm0p0001p681lqslxofp`, 4 个权限, `refresh_` 工作流 Running); 经公开 API 发测试帖与带回复的串文 PUBLISHED, 打开 analytics 调用 insights; Meta app 基本设置补齐. 提审缺口见第 9 节 |
+| r10 (2026-11-20) | 完成, 被 r11 取代 | commit 6e23336d, tag `stellarbyte-v2.25.3-r10`. SocialProvider 加可选 `platformCallbackAccount`, Threads 验 `signed_request`; 无鉴权 `POST /integrations/platform-callback/:integration/deauthorize|delete`; 新变量 `DATA_DELETION_URL`. 实测 Meta 移除通知是 multipart, r10 返回 400 |
+| r11 (2026-11-20) | 完成 | tag `stellarbyte-v2.25.3-r11`, 两个回调路由加 `NoFilesInterceptor`. 实测: 自签请求 (无签名 / 错签名 / 过期 400, 有效 200) 与 Meta 真实移除通知 (移除 + 删除两个回调均 200) 通过. 上线前备份 success; ghcr IPv6 拉镜像被重置, 用临时 `/etc/hosts` IPv4 映射, 已还原 |
+| 授权长期可用 (2026-11-14 规划) | 待执行 | 代码核实 token 明文存储, 刷新工作流只在连接时启动且一次失败即退出; 定下运维红线 (不删组织 / 不换已有频道所用的 app 或 OAuth client 与 `FRONTEND_URL` / 不用空库重建 / 三库一起恢复) 与待办 (恢复演练, 备份 age 加密, 刷新补丁, watchdog 告警, 首号刷新核对), 唯一清单见 runbook 12.3 节. 授权操作员 app-ops 见 D26 |
 | Facebook Page (2026-11-07, D24) | 完成 (2026-11-07 两个 Page 迁到组织 StellarByte, 迁前备份 20261107T230019Z; 经公开 API 发测试帖 PUBLISHED, Graph API 确认后已删; `HIDDEN_PROVIDERS` 加 `instagram,instagram-standalone`) | Meta 测试账号: Stalwart 新建 `sb-test` (PID 71), app 注册 `test@stellarbyte.ca` 经 IMAP 取激活链接激活并 API 登录 200; 先前未激活的 iCloud 测试账号与组织单事务删除. 凭据: App Secret 经 Graph API 换 app token 校验通过, 5 个权限 live; 主源与服务器 `.env` 逐 key 哈希一致 (服务器副本 `.env.pre-fb`); 上线前备份 set `20261107T195541Z`; `up -d --no-deps app` 约 95s healthy, 容器内变量已生效, Temporal worker 已连接, stalwart-health 前后 16/16, `oom_kill` 0. Add Channel → Facebook Page 跳转 Facebook 登录页无报错, client_id / redirect_uri / scope 正确. 首个授权: Page `BlessAura` (760948253779464) 连在测试组织 "Meta App Review" (2026-11-07 已迁到组织 StellarByte); 随后 Page `Totvan` (773088619228647) 同组织授权, 同样校验通过; `inBetweenSteps=false`; `debug_token`: type PAGE, is_valid, 长期 token (`expires_at` 0), `data_access_expires_at` 2027-02-05 (90 天, 期间用户无活动则需重连), 含 `pages_manage_posts`. |
 | 2026-11-07 收尾 (D22 等) | 完成 | Harrison (`harrison.vancouver@gmail.com`, Google 登录) 设 `isSuperAdmin=true`, 组织 StellarByte 的 API key 写回 Windmill, 公开 API 200 (key 注册时服务端随机生成, 未暴露过, 未再轮换). Google 登录: GCP `stellarbyte-scheduler-login` 同意屏补齐 Branding 链接后 Publish 为 In production (只用非敏感 scope). BW 待写条目与 `test@stellarbyte.ca` 全部写入, 桌面明文已删. GitHub 默认分支改为 `stellarbyte`, `Close inactive issues` 手动禁用, `Upstream release watch` schedule 生效 |
 | 2026-11-12 LinkedIn 个人号 | 完成 | `Harrison Ming` 授权进组织 StellarByte, 账号表 `personal-linkedin` bindings 已回填 |
-| 2026-11-19 (LinkedIn 公司页 / YouTube / app-ops) | 完成 | LinkedIn 公司页 (D25): 上线前备份 success, stalwart-health 16/16; 两边 `.env` 的 `HIDDEN_PROVIDERS` 改为 `instagram,instagram-standalone,gmb` (副本 `.env.pre-lipage-open` / `.env.production.pre-lipage-open`), app 约 2 分钟 healthy; 在 `harrison-personal` profile 用 Harrison 个人 LinkedIn 授权 StellarByte Technology Ltd. (`/v2/me` 实测通过, internalId 105901993), 经公开 API 发公司页首帖 PUBLISHED 并保留; `stellarbyte-linkedin` bindings 已回填. YouTube 神機君 (`easternblessing-youtube-2`, 品牌 EasternBlessing): `stellarbyte-youtube` client, 5 个 scope 齐, 有 refresh token, 公开上传未实测 (第 9 节). app-ops (D26): 邀请注册激活, 空组织 `app-ops` 备份后 disabled, 登录核对只见组织 StellarByte (runbook 12.1) |
+| 2026-11-19 (LinkedIn 公司页 / YouTube / app-ops) | 完成 | LinkedIn 公司页 (D25): 上线前备份 success, stalwart-health 16/16; 两边 `.env` 的 `HIDDEN_PROVIDERS` 改为 `instagram,instagram-standalone,gmb` (副本 `.env.pre-lipage-open` / `.env.production.pre-lipage-open`), app 约 2 分钟 healthy; 在 `harrison-personal` profile 用 Harrison 个人 LinkedIn 授权 StellarByte Technology Ltd. (`/v2/me` 实测通过, internalId 105901993), 经公开 API 发公司页首帖 PUBLISHED 并保留; `stellarbyte-linkedin` bindings 已回填. YouTube 神機君 (`easternblessing-youtube-2`, 品牌 EasternBlessing): `stellarbyte-youtube` client, 5 个 scope 齐, 有 refresh token, unlisted 上传已实测 (第 9 节). app-ops (D26): 邀请注册激活, 空组织 `app-ops` 备份后 disabled, 登录核对只见组织 StellarByte (runbook 12.1) |
 
 ## 8. 验收标准
 
@@ -200,7 +203,7 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 
 - 主线 `stellarbyte` = `v2.25.3` + 补丁 commit, `git log v2.25.3..stellarbyte` 只有 StellarByte 补丁.
 - 品牌: 登录、注册、侧栏、页面标题、邮件、OAuth 授权页、onboarding 无 Postiz 字样 (白名单除外); 主色蓝; 无 Postiz 社会证明; app 前端无 "Powered by" 署名与源码链接 (D17), `https://stellarbyte.ca/terms/` 有 AGPL 源码声明 (D18).
-- CI 构建成功并推送 `ghcr.io/harrison-ming/stellarbyte-app:<tag>` (amd64, 公开包). 已推送的 tag 不改写, 修订用 `-rN`: 首个 tag `stellarbyte-v2.25.3` 推旧私有包 `stellarbyte` 无权限失败; `-r2` 首个可用镜像 (改推公开包 `stellarbyte-app`); `-r3` 隐藏 Google 登录按钮; `-r4` Pinterest refresh token 修复; `-r5` 无计费不加载 Stripe.js + 国旗图标自托管; `-r6` 去掉 app 内署名/源码链接, 独立 Google 登录 client + 已验证邮箱关联, 开放注册 (D17-D23); `-r7` LinkedIn 公司页改用 CMA 权限与独立 app 变量 (D25); `-r8` YouTube 频道授权收窄到 5 个 scope 并换用 `stellarbyte-youtube` client (当前线上, 2026-11-13).
+- CI 构建成功并推送 `ghcr.io/harrison-ming/stellarbyte-app:<tag>` (amd64, 公开包). 已推送的 tag 不改写, 修订用 `-rN`: 首个 tag `stellarbyte-v2.25.3` 推旧私有包 `stellarbyte` 无权限失败; `-r2` 首个可用镜像 (改推公开包 `stellarbyte-app`); `-r3` 隐藏 Google 登录按钮; `-r4` Pinterest refresh token 修复; `-r5` 无计费不加载 Stripe.js + 国旗图标自托管; `-r6` 去掉 app 内署名/源码链接, 独立 Google 登录 client + 已验证邮箱关联, 开放注册 (D17-D23); `-r7` LinkedIn 公司页改用 CMA 权限与独立 app 变量 (D25); `-r8` YouTube 频道授权收窄到 5 个 scope 并换用 `stellarbyte-youtube` client (2026-11-13); `-r9` 删除频道 / 账号时作废平台授权 (2026-11-19); `-r10` 接收 Meta 平台回调; `-r11` 回调接受 multipart (当前线上, 2026-11-20).
 
 ### 8.2 本机冒烟
 
@@ -219,15 +222,16 @@ datafa.st (`data-domain="postiz.com"`)、Plausible、dub (`postiz.pro`) 等外�
 
 HTTPS 全站; 注册开放但本地注册须邮件激活, `/api/auth/*` 限速, 新注册 Discord 通知 (D21 / D23); 所有密钥新生成且不入 git; 每日备份 + 恢复演练; 告警; 资源限额; runbook 含部署、升级、回滚、恢复; 线上代码与公开仓库一致且源码地址在条款页公示 (AGPL, D18).
 
-## 9. 保留给用户的动作 (截至 2026-11-19 仍待办)
+## 9. 保留给用户的动作 (截至 2026-11-20 仍待办)
 
 只剩必须由 Harrison 本人决定 / 登录 / 付费, 或要 Harrison 先完成前置动作才能推进的项 (频道授权本身不再要求 Harrison 本人操作, 由授权操作员 app-ops 执行, D26):
 
-- **Pinterest 授权** (23 个可授权账号; 协议与逐账号清单 `STELLAR INFRA/platforms/pinterest/authorization-checklist.md`): 由 app-ops 在各号自己的 HubStudio 环境里授权 (runbook 12.2). 前置: runbook 12.3 节 "批量授权前" 待办 (恢复演练, 备份加密); r10 刷新补丁与 watchdog 须在首个号首次刷新 (授权后约 30 天) 前上线. 待 Harrison: 在 Pinterest 开发者后台复核 app 访问级别 (Standard / Trial) 与 redirect URI `https://app.stellarbyte.ca/integrations/social/pinterest`; 确认备份加密私钥写入 BW. 首个号授权后验第 11 节 Pinterest 刷新与回调两项.
+- **Pinterest 授权** (23 个可授权账号; 协议与逐账号清单 `STELLAR INFRA/platforms/pinterest/authorization-checklist.md`): 由 app-ops 在各号自己的 HubStudio 环境里授权 (runbook 12.2). 前置: runbook 12.3 节 "批量授权前" 待办 (恢复演练, 备份加密); 刷新补丁 (r12 或之后) 与 watchdog 须在首个号首次刷新 (授权后约 30 天) 前上线. 待 Harrison: 在 Pinterest 开发者后台复核 app 访问级别 (Standard / Trial) 与 redirect URI `https://app.stellarbyte.ca/integrations/social/pinterest`; 确认备份加密私钥写入 BW. 首个号授权后验第 11 节 Pinterest 刷新与回调两项.
 - **待写 BW 条目** (写入须 Harrison 确认, `credentials.md` 五节): 组织 API key `StellarByteSaaS - Org API Key (StellarByte)` (现只在 Windmill secret, 按凭据规范 ③ 主源应为 BW); YouTube client `stellarbyte-youtube` 的备份条目 (2026-11-19 起生产在用).
 - **LinkedIn 公司页 (D25)**: 2026-11-19 已接入 (第 7.1 节). 仍待: 约 2027-11 前 (获批后 12 个月内) 申请 Standard tier (需录屏), 否则 LinkedIn 收回 API 权限 (第 11 节, runbook 12.2).
 - **Google Business Profile (D25)**: client `StellarByte SaaS GMB` 与同意屏幕 (External, Testing) 2026-11-12 已就位 (runbook 12.2, credentials.md). 仍待: ① 2027-01-10 起用项目编号 56650864023 提交 Business Profile API 访问申请; ② 获批后启用 `mybusiness.googleapis.com`, 同意屏幕 Publish 为 In production, 去掉 `HIDDEN_PROVIDERS` 里的 `gmb`.
 - **YouTube**: 神機君 (`easternblessing-youtube-2`) 2026-11-19 已授权 (第 7.1 节). 2026-11-19 实测: 经公开 API 发 unlisted 测试视频 PUBLISHED, YouTube 返回 `privacyStatus: unlisted` (未被锁; YouTube 2026-11-02 已取消未审计项目锁私享的规定). 待: ① 该号所属 Google 账号与浏览器环境未定 (Harrison 2026-11-19: 先空着); ② Google 敏感 scope 验证 2026-11-19 已提交 (演示视频 https://youtu.be/yvaEVct19a4 ), 等 Google 审核, 期间可能邮件要求补材料 (发到开发者联系邮箱). 删除频道时作废 token 已由 r9 完成.
+- **Threads App Review**: 2026-11-20 表单 5 步除 Allowed usage 的测试调用计数外全部完成 (回调 r10/r11 已上线并填入后台, 站点三页已补 Threads, 录屏与用途说明已上传); Meta 计入 4 个权限的测试调用 (最长 24 小时) 后提交 (runbook 12.2). 过审前只能授权 Threads Testers.
 - **TikTok**: app 已配置 (2026-11-17, runbook 12.2); 选定账号后由 app-ops 在该号自己的环境里授权. 首次授权前在 TikTok 开发者后台核对回调 `https://app.stellarbyte.ca/integrations/social/tiktok` 已登记, 6 个 scope 全部开通.
 - 授权后: 回填 Windmill 变量 `publish_accounts` 与 Supabase `pinterest_publisher.accounts` 的 integration_id, 更新 `host/StellarByteSaaS/docs/integrations.md` 与全局账号表 (Pinterest 的 integrationId 写 `platforms/pinterest/account-status.json`, 其他平台写 `platforms/_shared/accounts.json` 的 `bindings`, 再 `acctctl lint`, 见 `docs/DEPLOYMENT.md` 12.2); 再决定是否开启 5 个 disabled 的 Windmill 发布 schedule (会对真实账号发帖).
 - **BlessAura Page token 需作废重授**: 2026-11-07 排查 R2 引用时, 一条 grep 把 BlessAura Page 的 access token 打印进了 agent 对话 (未写入文件). 作废方法: Facebook → 设置 → 商业集成 (Business Integrations) 移除 StellarPage 后重新在 app 里连接 BlessAura, 或改 Facebook 密码 (会让全部 Page token 失效, 之后两个 Page 都要重连).
@@ -248,7 +252,7 @@ D26 与授权长期可用 (2026-11-14) 的跨仓库同步已完成 (2026-11-19):
 - 新应用与邮件服务同机: 资源与网络已隔离, 但整机级故障 (入侵、供应商停机) 会同时影响两者. 彻底隔离需换机器.
 - Meta: StellarPage 2026-10-17 因未完成数据访问续期被限制, 2026-11-07 续期与审核通过 (D24). 年度续期漏做会再次被限制, 届时 Facebook 发帖全部失败. Instagram 未提审, 入口已用 `HIDDEN_PROVIDERS` 隐藏 (2026-11-07); 提审通过后从该变量去掉 `instagram,instagram-standalone`.
 - LinkedIn 公司页 (D25): Development tier 只能管理授权成员本人是管理员的公司页; 给其他 SaaS 用户的公司页用要先过 Standard tier (需录屏演示), 在此之前别对外宣传该入口. Standard tier 须在 Development 获批后 12 个月内 (约 2027-11) 申请, 否则权限被收回; 被拒不能用同一 app 重申; Development 配额下每天最多约 2 次 Add Channel / Reconnect (runbook 12.2). GMB (D25): 代码已上线但入口隐藏; GMB 发帖 (v4 localPosts) 依赖 Business Profile API 获批.
-- r4 的 Pinterest 刷新修复依据官方文档与代码审读, 还没有真实 integration 可验证: 首个 Pinterest 账号授权后, 确认 Temporal 中有 `refresh_<integrationId>` 工作流, 并在约 30 天 access token 到期时确认刷新成功且 DB 中 refresh token 已更换. 上游刷新工作流一次失败即退出且无补启, 在 r10 补丁 (退避重试 + 补启) 与 watchdog 上线前, 任一次刷新失败都要人工 Reconnect (runbook 12.3 节).
+- r4 的 Pinterest 刷新修复依据官方文档与代码审读, 还没有真实 integration 可验证: 首个 Pinterest 账号授权后, 确认 Temporal 中有 `refresh_<integrationId>` 工作流, 并在约 30 天 access token 到期时确认刷新成功且 DB 中 refresh token 已更换. 上游刷新工作流一次失败即退出且无补启, 在刷新补丁 (退避重试 + 补启) 与 watchdog 上线前, 任一次刷新失败都要人工 Reconnect (runbook 12.3 节).
 - Pinterest 回调 URI 是否已在 Pinterest 后台登记, 只能在首次授权时验证.
 - 上游不接受 AI 生成的 PR: L1' 补丁回馈上游只能走 issue 或人工重写, 因此 L1' 补丁可能长期自维护.
 - 外部安全检查 (2026-11-04, 从本机 Mac):

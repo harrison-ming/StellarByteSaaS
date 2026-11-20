@@ -8,7 +8,7 @@ status: active
 # StellarByteSaaS
 
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
-> 最后更新: 2026-11-19
+> 最后更新: 2026-11-20
 
 ## 概述
 
@@ -26,7 +26,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限速) -> 127.0.0.1:4007
 └── compose 项目 stellarbyte
     ├── stellarbyte-app       ghcr.io/harrison-ming/stellarbyte-app:<tag> (frontend + backend + Temporal worker)
-    │                     当前 stellarbyte-v2.25.3-r8, 回滚 r7; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
+    │                     当前 stellarbyte-v2.25.3-r11, 回滚 r9; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
     ├── stellarbyte-postgres  本机 Postgres 17 (库 stellarbyte / temporal / temporal_visibility)
     ├── stellarbyte-redis     Redis 7
     └── stellarbyte-temporal  Temporal 1.28 (SQL visibility)
@@ -84,7 +84,7 @@ curl -X POST \
   https://app.stellarbyte.ca/api/public/v1/posts
 ```
 
-Pinterest 限制 (`pinterest.provider.ts` / `pinterest.dto.ts`): 至少 1 个媒体, 图片最多 5 张, 视频须恰好 2 个附件 (视频 + 封面); 描述 <= 500 字符, title <= 100; `board` 必填且为纯数字. 请求体 `date` 必填.
+Pinterest 限制 (`pinterest.provider.ts` / `pinterest.dto.ts`): 至少 1 个媒体, 图片最多 5 张, 视频须恰好 2 个附件 (视频 + 封面); 描述 <= 500 字符, title <= 100; `board` 必填且为纯数字. 请求体 `date` / `shortLink` / `tags` 必填 (`tags` 可为空数组).
 
 ## 账号现状
 
