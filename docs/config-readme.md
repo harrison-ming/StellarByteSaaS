@@ -8,7 +8,7 @@ status: active
 # StellarByteSaaS
 
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
-> 最后更新: 2026-11-20
+> 最后更新: 2026-11-21
 
 ## 概述
 
@@ -18,7 +18,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 - **开源声明**: AGPL-3.0 源码地址公示在 https://stellarbyte.ca/terms/ 第 16 节 (app 界面不放署名/源码链接, spec D17 / D18)
 - **部署位置**: Contabo VPS 161.97.184.77, `/opt/stellarpostiz/`
 - **运维 runbook**: [DEPLOYMENT.md](DEPLOYMENT.md) (部署 / 升级 / 回滚 / 备份恢复 / 排障)
-- **密钥**: `STELLAR CONFIG/StellarByteSaaS/` (`.env.production` 为生产 `.env` 主源, `credentials.md` 为 BW 映射索引); 文件清单与 `.env.production.pre-*` 副本用法见 runbook 第 2 / 5 节. 组织与频道映射见 [integrations.md](integrations.md)
+- **密钥**: `STELLAR CONFIG/StellarByteSaaS/` (`.env.production` 为生产 `.env` 主源, `credentials.md` 为 BW 映射索引); 文件清单与 `.env.production.pre-*` 副本用法见 runbook 第 2 / 5 节. 组织, 已接入频道与待接入清单见 [integrations.md](integrations.md); 授权流程见 runbook 12.2-12.3 节
 
 ## 架构速览
 
@@ -26,7 +26,7 @@ StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) �
 Cloudflare (proxied, SSL Full) -> Contabo nginx (安全头 + /api/auth 登录限速) -> 127.0.0.1:4007
 └── compose 项目 stellarbyte
     ├── stellarbyte-app       ghcr.io/harrison-ming/stellarbyte-app:<tag> (frontend + backend + Temporal worker)
-    │                     当前 stellarbyte-v2.25.3-r11, 回滚 r9; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
+    │                     当前 tag 与回滚目标见 runbook 第 3 / 5 节; 镜像只由 CI 在推 stellarbyte-* tag 时构建 (D6)
     ├── stellarbyte-postgres  本机 Postgres 17 (库 stellarbyte / temporal / temporal_visibility)
     ├── stellarbyte-redis     Redis 7
     └── stellarbyte-temporal  Temporal 1.28 (SQL visibility)
@@ -85,10 +85,6 @@ curl -X POST \
 ```
 
 Pinterest 限制 (`pinterest.provider.ts` / `pinterest.dto.ts`): 至少 1 个媒体, 图片最多 5 张, 视频须恰好 2 个附件 (视频 + 封面); 描述 <= 500 字符, title <= 100; `board` 必填且为纯数字. 请求体 `date` / `shortLink` / `tags` 必填 (`tags` 可为空数组).
-
-## 账号现状
-
-组织, 已接入频道与待接入清单只记在 [integrations.md](integrations.md) 第 3 节; 授权流程与 Pinterest 前置条件见 runbook 12.2-12.3 节.
 
 ## 相关文档
 
