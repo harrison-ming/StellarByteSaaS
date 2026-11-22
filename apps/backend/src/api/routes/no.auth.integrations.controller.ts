@@ -8,10 +8,12 @@ import {
   Post,
   Req,
   UseFilters,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { NoFilesInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import { ConnectIntegrationDto } from '@gitroom/nestjs-libraries/dtos/integrations/connect.integration.dto';
 import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
@@ -31,6 +33,8 @@ import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/o
 import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
 import { PlatformCallbackDto } from '@gitroom/nestjs-libraries/dtos/integrations/platform.callback.dto';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
+import { ThrottlerRealIpGuard } from '@gitroom/nestjs-libraries/throttler/throttler.provider';
+import { PermissionsService } from '@gitroom/backend/services/auth/permissions/permissions.service';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -40,7 +44,8 @@ export class NoAuthIntegrationsController {
     private _integrationService: IntegrationService,
     private _refreshIntegrationService: RefreshIntegrationService,
     private _organizationService: OrganizationService,
-    private _postService: PostsService
+    private _postService: PostsService,
+    private _permissionsService: PermissionsService
   ) {}
 
   @Get('/')
@@ -444,6 +449,46 @@ export class NoAuthIntegrationsController {
     const org = await this._organizationService.getOrgById(organization);
 
     return this._integrationService.saveProviderPage(org.id, id, body);
+  }
+
+  // The page of a connect link (POST /public/v1/integrations/connect), the
+  // person who opens it may have no Postiz account
+  @Get('/public/connect/:token')
+  getConnectLink(@Param('token') token: string) {
+    return this._integrationService.getConnectLink(token);
+  }
+
+  // Capped per IP, since every attempt asks the platform for a new auth URL
+  @UseGuards(ThrottlerRealIpGuard)
+  @Throttle({ default: { limit: 30, ttl: 3600000 } })
+  @Post('/public/connect/:token')
+  async startConnectLink(@Param('token') token: string) {
+    // There is no org on the request for @CheckPolicies, and the link can be
+    // older than the last channel the plan allows (or come from the MCP)
+    const org = await this._organizationService.getOrgById(
+      await this._integrationService.getConnectLinkOrganization(token)
+    );
+    if (!org || org.deletedAt) {
+      throw new HttpException(
+        'This connection link expired, please ask for a new one',
+        404
+      );
+    }
+
+    const ability = await this._permissionsService.check(
+      org.id,
+      org.createdAt,
+      'USER',
+      [[AuthorizationActions.Create, Sections.CHANNEL]]
+    );
+    if (!ability.can(AuthorizationActions.Create, Sections.CHANNEL)) {
+      throw new HttpException(
+        'This Postiz workspace reached the channel limit of its plan, it has to be upgraded before another channel can be added',
+        400
+      );
+    }
+
+    return this._integrationService.startConnectLink(token);
   }
 
   @Post('/extension-refresh')
