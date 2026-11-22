@@ -44,6 +44,8 @@ export class TiktokBusinessProvider
     'user.info.basic',
     'user.info.username',
     'user.info.stats',
+    // /business/get/ followers / following / likes / videos counts (analytics)
+    'user.insights',
     'video.list',
     'video.upload',
     'video.publish',
