@@ -29,7 +29,7 @@ supersedes: STELLAR CONFIG/StellarByteSaaS/accounts.md
 
 ## 3. 已接入与待接入 (2026-11-21)
 
-- 已接入 (组织 StellarByte): Facebook Page `blessaura-facebook`, `totvan-facebook` (2026-11-07); LinkedIn 个人 `personal-linkedin` (2026-11-12); LinkedIn 公司页 `stellarbyte-linkedin` (StellarByte Technology Ltd., 2026-11-19); YouTube `easternblessing-youtube-2` (神機君, 2026-11-19); Threads `accessoryocean-threads` (@accessory.ocean, 2026-11-20, Threads Tester; 测试组织 "Meta App Review" 另接一份供 Meta 审核); TikTok for Business `matrix-tiktok` (FaithsHorizon, 2026-11-21, 测试用; 媒体域名 URL 所有权验证 2026-11-21 完成, 同日测试帖发布成功; r12 补统计 scope 后已重连, 见 DEPLOYMENT.md 12.2).
+- 已接入 (组织 StellarByte): Facebook Page `blessaura-facebook`, `totvan-facebook` (2026-11-07); LinkedIn 个人 `personal-linkedin` (2026-11-12; 没有 refresh token, 2027-01-11 前须手动 Reconnect, 见 DEPLOYMENT.md 12.3); LinkedIn 公司页 `stellarbyte-linkedin` (StellarByte Technology Ltd., 2026-11-19); YouTube `easternblessing-youtube-2` (神機君, 2026-11-19); Threads `accessoryocean-threads` (@accessory.ocean, 2026-11-20, Threads Tester; 测试组织 "Meta App Review" 另接一份供 Meta 审核); TikTok for Business `matrix-tiktok` (FaithsHorizon, 2026-11-21, 测试用; 媒体域名 URL 所有权验证 2026-11-21 完成, 同日测试帖发布成功; r12 补统计 scope 后已重连, 见 DEPLOYMENT.md 12.2).
 - 待接入: Threads 其他账号 (App Review 2026-11-20 已提交, 过审前只能授权 Threads Testers); TikTok for Business 其他账号 (Saylo 两个新号待注册养号后授权, 见 DEPLOYMENT.md 12.2; 旧 Content Posting 入口 `tiktok` 已隐藏); Pinterest (第 4 节映射全部待重新授权); Google Business Profile 与 Instagram 入口隐藏 (`HIDDEN_PROVIDERS`; GMB 的 Business Profile API 申请 2027-01-10 起才能提交, spec D25).
 - 平台审核中: Threads App Review (见上). YouTube 的 Google 验证 2026-11-21 已通过 (DEPLOYMENT.md 12.2).
 - 授权前所有 Pinterest / agent_flow 发布 schedule 保持 disabled.
@@ -53,4 +53,4 @@ momodompet 其他 board: Social `1061020062151306851` (PUBLIC), Products `106102
 
 - 查 integration: 服务器上 `docker exec stellarbyte-postgres psql -U postgres -d stellarbyte -c 'select id, name, "providerIdentifier", "internalId", disabled from "Integration" where "deletedAt" is null;'`, 或公开 API `GET /api/public/v1/integrations` (key 取 Windmill secret).
 - Board ID: StellarByte 频道的 boards 列表, 或 Pinterest API `GET /v5/boards`.
-- 授权只走 StellarByte UI (旧 `platforms/pinterest` OAuth / token 刷新工具已废弃, spec D14); Pinterest / Threads 等设了 `refreshCron` 的 provider 由 Temporal `refreshTokenWorkflow` 续期, 一次刷新失败即需 UI Reconnect; 其余 provider 发帖时按需刷新 (DEPLOYMENT.md 12.3).
+- 授权只走 StellarByte UI (旧 `platforms/pinterest` OAuth / token 刷新工具已废弃, spec D14); Pinterest / Threads 等设了 `refreshCron` 的 provider 由 Temporal `refreshTokenWorkflow` 续期, 一次刷新失败即需 UI Reconnect; 其余 provider 发帖时用 refresh token 按需刷新, 没有 refresh token 的 (LinkedIn 个人号) 到期前只能手动 Reconnect; 需重连与临近到期由 `stellarbyte-channel-health` 告警 (DEPLOYMENT.md 第 7 节, 12.3).
