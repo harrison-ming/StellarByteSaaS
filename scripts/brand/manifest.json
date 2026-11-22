@@ -260,6 +260,108 @@
       "find": "Welcome to Postiz",
       "replace": "Welcome to StellarByte",
       "min": 1
+    },
+    {
+      "id": "email-billing-cancel",
+      "files": [
+        "apps/backend/src/api/routes/billing.controller.ts"
+      ],
+      "find": "Your Postiz subscription",
+      "replace": "Your StellarByte subscription",
+      "min": 1,
+      "note": "set-to-cancel email (v2.26.0); billing is off on StellarByte"
+    },
+    {
+      "id": "email-billing-cancel-body",
+      "files": [
+        "apps/backend/src/api/routes/billing.controller.ts"
+      ],
+      "find": "keep using Postiz as usual",
+      "replace": "keep using StellarByte as usual",
+      "min": 1
+    },
+    {
+      "id": "error-channel-limit",
+      "files": [
+        "apps/backend/src/api/routes/no.auth.integrations.controller.ts"
+      ],
+      "find": "This Postiz workspace",
+      "replace": "This StellarByte workspace",
+      "min": 1
+    },
+    {
+      "id": "connect-link-logo-alt",
+      "files": [
+        "apps/frontend/src/components/launches/connect.link.tsx"
+      ],
+      "find": "alt=\"Postiz\"",
+      "replace": "alt=\"StellarByte\"",
+      "min": 1,
+      "note": "public connect-link page (v2.26.0); /postiz.svg is already the StellarByte icon"
+    },
+    {
+      "id": "connect-link-wants",
+      "files": [
+        "apps/frontend/src/components/launches/connect.link.tsx"
+      ],
+      "find": "'Postiz wants to connect",
+      "replace": "'StellarByte wants to connect",
+      "min": 1
+    },
+    {
+      "id": "connect-link-automate",
+      "files": [
+        "apps/frontend/src/components/launches/connect.link.tsx"
+      ],
+      "find": "'Postiz will automate",
+      "replace": "'StellarByte will automate",
+      "min": 1
+    },
+    {
+      "id": "connect-link-system",
+      "files": [
+        "apps/frontend/src/components/launches/connect.link.tsx"
+      ],
+      "find": "the Postiz system",
+      "replace": "the StellarByte system",
+      "min": 1
+    },
+    {
+      "id": "connect-link-workspace",
+      "files": [
+        "apps/frontend/src/components/launches/connect.link.tsx"
+      ],
+      "find": "a Postiz workspace",
+      "replace": "a StellarByte workspace",
+      "min": 1
+    },
+    {
+      "id": "connect-link-outside",
+      "files": [
+        "apps/frontend/src/components/launches/connect.link.tsx"
+      ],
+      "find": "outside of Postiz",
+      "replace": "outside of StellarByte",
+      "min": 1
+    },
+    {
+      "id": "manage-modal-removed",
+      "files": [
+        "apps/frontend/src/components/new-launch/manage.modal.tsx"
+      ],
+      "find": "removed from Postiz only",
+      "replace": "removed from StellarByte only",
+      "min": 2,
+      "note": "delete dialog of multi-channel posts (v2.26.0)"
+    },
+    {
+      "id": "error-discord-bot-token",
+      "files": [
+        "libraries/nestjs-libraries/src/integrations/social/discord.provider.ts"
+      ],
+      "find": "rejected the Postiz bot token",
+      "replace": "rejected the StellarByte bot token",
+      "min": 1
     }
   ],
   "locales": {
