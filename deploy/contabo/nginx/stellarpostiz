@@ -5,10 +5,13 @@
 # /api -> backend :3000 and everything else -> frontend :4200.
 # Real client IP: nginx.conf (http level) already has set_real_ip_from <Cloudflare ranges> +
 # real_ip_header CF-Connecting-IP, so $binary_remote_addr below is the visitor IP, not Cloudflare's.
+# X-Forwarded-For is overwritten with that IP (not appended), so a client-sent X-Forwarded-For
+# never reaches the app.
 #
 # Security headers: nginx.conf sets 4 global add_header lines; any add_header in this server block
 # REPLACES (does not extend) the inherited ones, so all of them are restated here. Changes vs
-# global: HSTS 6 months without includeSubDomains/preload, plus Permissions-Policy. The app is
+# global: HSTS 1 year (includeSubDomains covers only *.app.stellarbyte.ca, no preload), plus
+# Permissions-Policy. The app is
 # never framed by itself (it only embeds youtube.com), so SAMEORIGIN is safe.
 
 # Login brute-force protection (auth endpoints only): 10 req/min per visitor IP, burst 5.
@@ -28,11 +31,14 @@ server {
     ssl_certificate_key /etc/ssl/private/origin.key;
     ssl_protocols TLSv1.2 TLSv1.3;
 
-    add_header Strict-Transport-Security "max-age=15552000" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options SAMEORIGIN always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+
+    # Framework fingerprint (Next.js / Express) is not needed by any client.
+    proxy_hide_header X-Powered-By;
 
     # Cloudflare free plan caps request bodies at 100 MB.
     client_max_body_size 100m;
@@ -44,7 +50,9 @@ server {
     }
 
     # Unauthenticated auth endpoints (backend routes /auth/* behind the container's /api prefix).
-    location ~ ^/api/auth/(login|register|forgot|forgot-return|activate|resend-activation)$ {
+    # Express matches routes case-insensitively and ignores a trailing slash, so the match here
+    # must too (~* plus optional "/..."), otherwise /api/auth/login/ or /API/auth/Login skip the limit.
+    location ~* ^/api/auth/(login|register|forgot|forgot-return|activate|resend-activation)(/.*)?$ {
         limit_req zone=stellarbyte_auth burst=5 nodelay;
         limit_req_status 429;
         limit_req_log_level warn;
@@ -52,7 +60,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 60s;
     }
@@ -62,7 +70,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         # Cloudflare always reaches the user over HTTPS; keep cookies "secure" even on :80 origin pulls.
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header Upgrade $http_upgrade;

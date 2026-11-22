@@ -1,4 +1,4 @@
-import { Agent } from 'undici';
+import { Agent, buildConnector } from 'undici';
 import axios, { AxiosInstance } from 'axios';
 import dns from 'node:dns';
 import net from 'node:net';
@@ -45,18 +45,69 @@ function ssrfSafeLookup(
   });
 }
 
+// Node (net/tls) and undici skip the `lookup` hook entirely when the target
+// host is already an IP literal, so `http://169.254.169.254/` or a redirect to
+// `http://127.0.0.1/` would never reach `ssrfSafeLookup`. Every connection is
+// therefore also checked here, right before the socket is opened; this covers
+// the first request and every redirect hop, because each hop opens its own
+// connection through the same dispatcher / agent.
+function blockedLiteralHost(host?: string | null): boolean {
+  if (!host) {
+    return false;
+  }
+  const bare = host.replace(/^\[|\]$/g, '');
+  return net.isIP(bare) !== 0 && isBlockedIp(bare);
+}
+
+const baseConnector = buildConnector({ lookup: ssrfSafeLookup } as any);
+
 export const ssrfSafeDispatcher = new Agent({
-  connect: {
-    lookup: ssrfSafeLookup,
+  connect: (options, callback) => {
+    if (blockedLiteralHost(options.hostname)) {
+      return callback(new Error('Blocked IP'), null);
+    }
+    return baseConnector(options, callback);
   },
 });
+
+class SsrfSafeHttpAgent extends http.Agent {
+  createConnection(options: any, callback: any) {
+    if (blockedLiteralHost(options.host)) {
+      callback(new Error('Blocked IP'));
+      return undefined as any;
+    }
+    // createConnection is public Node API but missing from @types/node
+    return (http.Agent.prototype as any).createConnection.call(
+      this,
+      options,
+      callback
+    );
+  }
+}
+
+class SsrfSafeHttpsAgent extends https.Agent {
+  createConnection(options: any, callback: any) {
+    if (blockedLiteralHost(options.host)) {
+      callback(new Error('Blocked IP'));
+      return undefined as any;
+    }
+    // createConnection is public Node API but missing from @types/node
+    return (https.Agent.prototype as any).createConnection.call(
+      this,
+      options,
+      callback
+    );
+  }
+}
 
 // axios can't use an undici dispatcher, but Node's http(s) agents accept the
 // same `lookup` hook, so axios requests (providers that need form-data /
 // stream uploads) get the identical pinned-DNS guard as `this.fetch`.
 const ssrfSafeAxios = axios.create({
-  httpAgent: new http.Agent({ lookup: ssrfSafeLookup } as http.AgentOptions),
-  httpsAgent: new https.Agent({
+  httpAgent: new SsrfSafeHttpAgent({
+    lookup: ssrfSafeLookup,
+  } as http.AgentOptions),
+  httpsAgent: new SsrfSafeHttpsAgent({
     lookup: ssrfSafeLookup,
   } as https.AgentOptions),
 });

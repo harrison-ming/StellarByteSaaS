@@ -1,4 +1,5 @@
 import { internalFetch } from '@gitroom/helpers/utils/internal.fetch';
+import { cookies } from 'next/headers';
 export const dynamic = 'force-dynamic';
 import { Register } from '@gitroom/frontend/components/auth/register';
 import { Metadata } from 'next';
@@ -16,7 +17,10 @@ export default async function Auth(params: {searchParams: Promise<{provider: str
     const canRegister = (
       await (await internalFetch('/auth/can-register')).json()
     ).register;
-    if (!canRegister && !(await params?.searchParams)?.provider) {
+    // a pending team invite (org cookie) may still sign up: the backend
+    // only lets it through with a valid, unused invite token
+    const hasInvite = !!(await cookies()).get('org')?.value;
+    if (!canRegister && !hasInvite && !(await params?.searchParams)?.provider) {
       return (
         <>
           <LoginWithOidc />

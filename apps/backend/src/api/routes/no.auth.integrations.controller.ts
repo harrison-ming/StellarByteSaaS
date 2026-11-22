@@ -6,9 +6,11 @@ import {
   HttpException,
   Param,
   Post,
+  Req,
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { NoFilesInterceptor } from '@nestjs/platform-express';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import { ConnectIntegrationDto } from '@gitroom/nestjs-libraries/dtos/integrations/connect.integration.dto';
@@ -115,7 +117,8 @@ export class NoAuthIntegrationsController {
   @UseFilters(new NotEnoughScopesFilter())
   async connectSocialMedia(
     @Param('integration') integration: string,
-    @Body() body: ConnectIntegrationDto
+    @Body() body: ConnectIntegrationDto,
+    @Req() req: Request
   ) {
     if (
       !this._integrationManager
@@ -142,6 +145,14 @@ export class NoAuthIntegrationsController {
     const organization = await ioRedis.get(`organization:${body.state}`);
     if (!organization) {
       throw new Error('Organization not found');
+    }
+
+    const owner = await ioRedis.get(`owner:${body.state}`);
+    if (owner && AuthService.sessionUserId(req) !== owner) {
+      throw new HttpException(
+        'This connection was started from another session, please connect the channel again',
+        400
+      );
     }
 
     const org = await this._organizationService.getOrgById(organization);

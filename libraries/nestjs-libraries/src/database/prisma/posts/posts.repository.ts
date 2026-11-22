@@ -694,6 +694,19 @@ export class PostsRepository {
         },
       });
 
+      // The upsert is keyed by id alone, so a post id from another
+      // organization (ids are visible in public preview links) would be
+      // overwritten and moved into this one. Only ids owned here may update.
+      if (value.id) {
+        const existing = await this._post.model.post.findUnique({
+          where: { id: value.id },
+          select: { organizationId: true },
+        });
+        if (existing && existing.organizationId !== orgId) {
+          throw new Error('Post not found');
+        }
+      }
+
       posts.push(
         await this._post.model.post.upsert({
           where: {
@@ -757,6 +770,7 @@ export class PostsRepository {
           await this._post.model.post.findFirst({
             where: {
               group: body.group,
+              organizationId: orgId,
               deletedAt: null,
               parentPostId: null,
             },
@@ -771,6 +785,7 @@ export class PostsRepository {
       await this._post.model.post.updateMany({
         where: {
           group: body.group,
+          organizationId: orgId,
           deletedAt: null,
         },
         data: {
@@ -786,6 +801,7 @@ export class PostsRepository {
       await this._post.model.post.updateMany({
         where: {
           group: body.group,
+          organizationId: orgId,
           deletedAt: null,
           id: {
             notIn: posts.map((p) => p.id),

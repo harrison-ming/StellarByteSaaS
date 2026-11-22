@@ -84,7 +84,9 @@ export async function proxy(request: NextRequest) {
 
   if (
     nextUrl.pathname.startsWith('/auth/register') &&
-    process.env.DISABLE_REGISTRATION === 'true'
+    process.env.DISABLE_REGISTRATION === 'true' &&
+    // team invites still sign up; the backend verifies the invite token
+    !request.cookies.get('org')?.value
   ) {
     return NextResponse.redirect(new URL('/auth/login', nextUrl.href));
   }

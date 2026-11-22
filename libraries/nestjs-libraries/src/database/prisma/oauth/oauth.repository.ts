@@ -258,6 +258,10 @@ export class OAuthRepository {
             id: true,
             email: true,
             activated: true,
+            deletedAt: true,
+            organizations: {
+              select: { organizationId: true, disabled: true },
+            },
           },
         },
       },

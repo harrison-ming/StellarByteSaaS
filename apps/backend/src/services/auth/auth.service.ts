@@ -19,10 +19,13 @@ export class AuthService {
     private _emailService: EmailService,
     private _providerManager: AuthProviderManager
   ) {}
-  async canRegister(provider: string) {
+  async canRegister(provider: string, invited = false) {
+    // invited: a valid team invite token (see getOrgFromCookie); with
+    // registration closed, invites are the only way new users get in
     if (
       process.env.DISABLE_REGISTRATION !== 'true' ||
-      provider === Provider.GENERIC
+      provider === Provider.GENERIC ||
+      invited
     ) {
       return true;
     }
@@ -44,14 +47,19 @@ export class AuthService {
       if (body instanceof CreateOrgUserDto) {
         body.email = body.email.toLowerCase();
       }
+      // checked before looking the email up, so a closed instance does not
+      // tell anonymous callers which emails have accounts
+      if (
+        body instanceof CreateOrgUserDto &&
+        !(await this.canRegister(provider, await this.isInvite(addToOrg)))
+      ) {
+        throw new Error('Registration is disabled');
+      }
+
       const user = await this._userService.getUserByEmail(body.email);
       if (body instanceof CreateOrgUserDto) {
         if (user) {
           throw new Error('Email already exists');
-        }
-
-        if (!(await this.canRegister(provider))) {
-          throw new Error('Registration is disabled');
         }
 
         const create = await this._organizationService.createOrgAndUser(
@@ -94,7 +102,8 @@ export class AuthService {
       provider,
       body as CreateOrgUserDto,
       ip,
-      userAgent
+      userAgent,
+      await this.isInvite(addToOrg)
     );
 
     const addedOrg =
@@ -137,11 +146,22 @@ export class AuthService {
     }
   }
 
+  // a signed, unexpired and not yet used team invite
+  private async isInvite(
+    addToOrg?: boolean | { orgId: string; role: 'USER' | 'ADMIN'; id: string }
+  ) {
+    if (!addToOrg || typeof addToOrg === 'boolean') {
+      return false;
+    }
+    return !(await this._organizationService.isInviteUsed(addToOrg.id));
+  }
+
   private async loginOrRegisterProvider(
     provider: Provider,
     body: CreateOrgUserDto,
     ip: string,
-    userAgent: string
+    userAgent: string,
+    invited = false
   ) {
     const providerInstance = this._providerManager.getProvider(provider);
     const providerUser = await providerInstance.getUser(body.providerToken);
@@ -155,7 +175,7 @@ export class AuthService {
       return user;
     }
 
-    if (!(await this.canRegister(provider))) {
+    if (!(await this.canRegister(provider, invited))) {
       throw new Error('Registration is disabled');
     }
 
@@ -350,9 +370,15 @@ export class AuthService {
   }
 
   private async jwt(user: User) {
-    if (user.password) {
-      delete user.password;
-    }
-    return AuthChecker.signJWT(user);
+    // the fingerprint must come from the stored hash: callers such as
+    // activate() only hold the decoded token, not the database row
+    const stored = await this._userService.getUserById(user.id);
+    // iat / exp / sv are dropped: activate() re-signs a decoded token
+    const { password, iat, exp, sv, ...claims } = user as User & {
+      iat?: number;
+      exp?: number;
+      sv?: string;
+    };
+    return AuthChecker.signSessionJWT(claims, stored?.password);
   }
 }

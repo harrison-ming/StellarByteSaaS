@@ -404,6 +404,13 @@ export class OrganizationRepository {
     });
   }
 
+  async isInviteUsed(inviteId: string) {
+    return !!(await this._user.model.user.findFirst({
+      where: { inviteId },
+      select: { id: true },
+    }));
+  }
+
   async addUserToOrg(
     userId: string,
     id: string,

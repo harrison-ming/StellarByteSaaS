@@ -11,7 +11,7 @@ const cookieOptions = (expiresInDays: number, httpOnly: boolean) => ({
     ? {
         secure: true,
         httpOnly,
-        sameSite: 'none' as const,
+        sameSite: 'lax' as const,
       }
     : {}),
   expires: new Date(Date.now() + DAY * expiresInDays),

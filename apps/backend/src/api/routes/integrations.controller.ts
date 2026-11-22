@@ -7,7 +7,10 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
@@ -222,7 +225,8 @@ export class IntegrationsController {
     @Query('externalUrl') externalUrl: string,
     @Query('redirectUrl') redirectUrl: string,
     @Query('onboarding') onboarding: string,
-    @GetOrgFromRequest() org: Organization
+    @GetOrgFromRequest() org: Organization,
+    @Req() req: Request
   ) {
     if (
       !this._integrationManager
@@ -271,6 +275,13 @@ export class IntegrationsController {
       }
 
       await ioRedis.set(`organization:${state}`, org.id, 'EX', 3600);
+      // binds the callback to the browser session that started it, so an
+      // authorize link cannot be sent to someone else to attach their
+      // account to this organization (public API links stay unbound)
+      const owner = AuthService.sessionUserId(req);
+      if (owner) {
+        await ioRedis.set(`owner:${state}`, owner, 'EX', 3600);
+      }
       await ioRedis.set(`login:${state}`, codeVerifier, 'EX', 3600);
       await ioRedis.set(
         `external:${state}`,

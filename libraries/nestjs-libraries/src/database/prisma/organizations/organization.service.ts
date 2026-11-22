@@ -47,6 +47,10 @@ export class OrganizationService {
     return this._organizationRepository.addUserToOrg(userId, id, orgId, role);
   }
 
+  isInviteUsed(inviteId: string) {
+    return this._organizationRepository.isInviteUsed(inviteId);
+  }
+
   getOrgById(id: string) {
     return this._organizationRepository.getOrgById(id);
   }
@@ -114,13 +118,28 @@ export class OrganizationService {
         id,
       })}`;
     if (body.sendEmail) {
+      // user and org names are user-controlled and go into an HTML body
+      const html = (value: string) =>
+        String(value).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              '"': '&quot;',
+              "'": '&#39;',
+            }[c]!)
+        );
       const inviter = user.name
         ? `${user.name} (${user.email})`
         : user.email;
       await this._notificationsService.sendEmail(
         body.email,
         `${user.name || user.email} invited you to join "${org.name}"`,
-        `${inviter} has invited you to join the "${org.name}" team.<br /><a href="${url}">Accept the invitation</a> to get started.<br />The link will expire in 2 days.`
+        `${html(inviter)} has invited you to join the "${html(
+          org.name
+        )}" team.<br /><a href="${url}">Accept the invitation</a> to get started.<br />The link will expire in 2 days.`
       );
     }
     return { url };

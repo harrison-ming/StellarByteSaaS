@@ -767,7 +767,19 @@ export class OAuthService {
 
   async getOrgByOAuthToken(token: string) {
     const encrypted = AuthService.fixedEncryption(token);
-    return this._oauthRepository.findByAccessToken(encrypted);
+    const authorization = await this._oauthRepository.findByAccessToken(
+      encrypted
+    );
+    // the token acts for the user who approved it: once that user is deleted
+    // or removed / disabled in the organization, the token stops working
+    const member = authorization?.user?.organizations?.some(
+      (o) =>
+        o.organizationId === authorization.organizationId && !o.disabled
+    );
+    if (!authorization || authorization.user?.deletedAt || !member) {
+      return null;
+    }
+    return authorization;
   }
 
   async getUserInfo(authorization?: string) {

@@ -42,6 +42,38 @@ export class AuthService {
   static signJWT(value: object) {
     return sign(value, process.env.JWT_SECRET!);
   }
+
+  // Login sessions: expire, and carry a fingerprint of the password hash so
+  // a password change (or reset) ends every session issued before it.
+  static signSessionJWT(value: object, passwordHash?: string | null) {
+    return sign(
+      { ...value, sv: AuthService.sessionFingerprint(passwordHash) },
+      process.env.JWT_SECRET!,
+      { expiresIn: `${AuthService.SESSION_DAYS}d` }
+    );
+  }
+
+  static SESSION_DAYS = 30;
+
+  // id of the logged-in user behind a request (auth header or cookie), or
+  // null; signature only, no database lookup
+  static sessionUserId(req: { headers?: any; cookies?: any }): string | null {
+    try {
+      const token = req?.headers?.auth || req?.cookies?.auth;
+      const payload = token ? (verify(token, process.env.JWT_SECRET!) as any) : null;
+      return payload?.sv && typeof payload.id === 'string' ? payload.id : null;
+    } catch {
+      return null;
+    }
+  }
+
+  static sessionFingerprint(passwordHash?: string | null) {
+    return crypto
+      .createHmac('sha256', process.env.JWT_SECRET!)
+      .update(passwordHash || '')
+      .digest('hex')
+      .slice(0, 16);
+  }
   static verifyJWT(token: string) {
     return verify(token, process.env.JWT_SECRET!);
   }

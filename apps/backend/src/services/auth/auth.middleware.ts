@@ -16,7 +16,7 @@ export const removeAuth = (res: Response) => {
       ? {
           secure: true,
           httpOnly: true,
-          sameSite: 'none',
+          sameSite: 'lax',
         }
       : {}),
     expires: new Date(0),
@@ -54,6 +54,14 @@ export class AuthMiddleware implements NestMiddleware {
       }
 
       if (!user.activated) {
+        throw new HttpForbiddenException();
+      }
+
+      // only login sessions carry `sv`, so reset / invite / activation-era
+      // tokens are refused, and a changed password invalidates old sessions
+      if (
+        (payload as any).sv !== AuthService.sessionFingerprint(user.password)
+      ) {
         throw new HttpForbiddenException();
       }
 

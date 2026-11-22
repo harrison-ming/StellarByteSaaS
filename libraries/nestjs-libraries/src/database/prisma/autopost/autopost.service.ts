@@ -16,6 +16,7 @@ import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/in
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { TemporalService } from 'nestjs-temporal-core';
 import { TypedSearchAttributes } from '@temporalio/common';
+import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
 import {
   organizationId,
 } from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
@@ -139,7 +140,9 @@ export class AutopostService {
 
   async loadXML(url: string) {
     try {
-      const { items } = await parser.parseURL(url);
+      // parser.parseURL() uses its own http client (no SSRF guard, follows
+      // redirects), so the feed is fetched through the pinned-DNS dispatcher.
+      const { items } = await parser.parseString(await this.fetchText(url));
       const findLast = items.reduce(
         (all: any, current: any) => {
           if (dayjs(current.pubDate).isAfter(all.pubDate)) {
@@ -187,9 +190,21 @@ export class AutopostService {
       },
     });
 
+  private async fetchText(url: string) {
+    if (!/^https?:\/\//i.test(url)) {
+      throw new Error('Unsupported URL');
+    }
+    const response = await fetch(url, {
+      // @ts-ignore — undici option, not in lib.dom fetch types
+      dispatcher: getSsrfSafeDispatcher(),
+      signal: AbortSignal.timeout(15000),
+    });
+    return response.text();
+  }
+
   async loadUrl(url: string) {
     try {
-      const loadDom = new JSDOM(await (await fetch(url)).text());
+      const loadDom = new JSDOM(await this.fetchText(url));
       loadDom.window.document
         .querySelectorAll('script')
         .forEach((s) => s.remove());
