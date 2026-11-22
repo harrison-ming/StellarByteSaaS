@@ -12,6 +12,12 @@
 #                                              restore into a throwaway database inside
 #                                              the running Postgres container and compare
 #                                              per-table row counts with the dump's source
+#
+# Offsite copies are age-encrypted before they leave the host (standards/backup 2.2):
+# R2 holds only <name>.age plus <name>.age.manifest (plaintext + ciphertext sha256).
+# The host keeps only the public key; the private key is Bitwarden
+# "Stellar Backup - Age Key" (Infrastructure/backup). Local dumps stay plaintext
+# (root, 0700 dir / 0600 files) for fast restores.
 #   stellarbyte-backup.sh --dry-run backup     print what would happen
 #
 # No database password is accepted: pg_dump / pg_restore run inside the Postgres
@@ -28,6 +34,7 @@
 #   STELLARBYTE_R2_CONFIG_FILE        unset = no offsite copy (backup) / required (watchdog)
 #       file mode 600 with R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET
 #   STELLARBYTE_R2_PREFIX             stellarbyte
+#   STELLARBYTE_AGE_RECIPIENT_FILE    /root/.config/stellarbyte/age.pub (required with R2)
 #   DOCKER_BIN / AWS_BIN              docker / aws
 set -euo pipefail
 
@@ -39,6 +46,8 @@ DATABASES="${STELLARBYTE_DATABASES:-stellarbyte temporal temporal_visibility}"
 MAX_AGE_MINUTES="${STELLARBYTE_BACKUP_MAX_AGE_MINUTES:-1560}"
 R2_CONFIG_FILE="${STELLARBYTE_R2_CONFIG_FILE:-}"
 R2_PREFIX="${STELLARBYTE_R2_PREFIX:-stellarbyte}"
+AGE_RECIPIENT_FILE="${STELLARBYTE_AGE_RECIPIENT_FILE:-/root/.config/stellarbyte/age.pub}"
+AGE_BIN="${AGE_BIN:-age}"
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 AWS_BIN="${AWS_BIN:-aws}"
 
@@ -165,37 +174,51 @@ load_r2_config() {
   export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
   export AWS_DEFAULT_REGION=auto
   require_command "$AWS_BIN"
+  require_command "$AGE_BIN"
+  [[ -f "$AGE_RECIPIENT_FILE" ]] && grep -Eq '^age1[0-9a-z]{58}$' "$AGE_RECIPIENT_FILE" \
+    || die "age recipient file is missing or malformed: $AGE_RECIPIENT_FILE"
 }
 
-# Read back the remote copy and compare checksum + manifest + full-object hash.
+# Read back the remote ciphertext: manifest + full-object hash must match what was sent.
 r2_check() {
-  local name="$1" expected="$2" remote size line manifest actual
-  remote="s3://${R2_BUCKET}/${R2_PREFIX}/${name}"
-  size="$("$AWS_BIN" s3api head-object --bucket "$R2_BUCKET" --key "${R2_PREFIX}/${name}" \
+  local name="$1" plain_sum="$2" remote size manifest cipher_sum actual
+  remote="s3://${R2_BUCKET}/${R2_PREFIX}/${name}.age"
+  size="$("$AWS_BIN" s3api head-object --bucket "$R2_BUCKET" --key "${R2_PREFIX}/${name}.age" \
     --endpoint-url "$R2_ENDPOINT" --query ContentLength --output text)"
-  [[ "$size" =~ ^[1-9][0-9]*$ ]] || die "remote dump is missing or empty: $name"
-  line="$("$AWS_BIN" s3 cp "${remote}.sha256" - --endpoint-url "$R2_ENDPOINT" --only-show-errors)"
-  [[ "$line" == "${expected}  ${name}" ]] || die "remote checksum artifact does not match: $name"
+  [[ "$size" =~ ^[1-9][0-9]*$ ]] || die "remote encrypted dump is missing or empty: $name"
   manifest="$("$AWS_BIN" s3 cp "${remote}.manifest" - --endpoint-url "$R2_ENDPOINT" --only-show-errors)"
   grep -Fxq "file=${name}" <<<"$manifest" || die "remote manifest filename does not match: $name"
-  grep -Fxq "sha256=${expected}" <<<"$manifest" || die "remote manifest checksum does not match: $name"
+  grep -Fxq "sha256=${plain_sum}" <<<"$manifest" || die "remote manifest checksum does not match: $name"
+  grep -Fxq "encryption=age" <<<"$manifest" || die "remote manifest is not an age manifest: $name"
+  cipher_sum="$(awk -F= '$1 == "age_sha256" {print $2}' <<<"$manifest")"
+  [[ "$cipher_sum" =~ ^[a-f0-9]{64}$ ]] || die "remote manifest has no ciphertext checksum: $name"
   if command -v sha256sum >/dev/null 2>&1; then
     actual="$("$AWS_BIN" s3 cp "$remote" - --endpoint-url "$R2_ENDPOINT" --only-show-errors | sha256sum | awk '{print $1}')"
   else
     actual="$("$AWS_BIN" s3 cp "$remote" - --endpoint-url "$R2_ENDPOINT" --only-show-errors | shasum -a 256 | awk '{print $1}')"
   fi
-  [[ "$actual" == "$expected" ]] || die "remote dump checksum mismatch: $name"
-  log "private R2 checksum verified: $name ($size bytes)"
+  [[ "$actual" == "$cipher_sum" ]] || die "remote encrypted dump checksum mismatch: $name"
+  log "private R2 encrypted copy verified: ${name}.age ($size bytes)"
 }
 
 r2_copy() {
-  local file="$1" artifact
-  for artifact in "$file" "${file}.sha256" "${file}.manifest"; do
-    [[ -f "$artifact" && ! -L "$artifact" && -s "$artifact" ]] || die "bad artifact: $artifact"
-    "$AWS_BIN" s3 cp "$artifact" "s3://${R2_BUCKET}/${R2_PREFIX}/$(basename "$artifact")" \
-      --endpoint-url "$R2_ENDPOINT" --only-show-errors
-  done
-  r2_check "$(basename "$file")" "$(awk 'NR == 1 {print $1}' "${file}.sha256")"
+  local file="$1" name cipher cmanifest plain_sum cipher_sum
+  name="$(basename "$file")"
+  [[ -f "$file" && ! -L "$file" && -s "$file" ]] || die "bad artifact: $file"
+  cipher="$BACKUP_DIR/.${name}.age.$$"
+  cmanifest="$cipher.manifest"
+  TEMP_FILES+=("$cipher" "$cmanifest")
+  "$AGE_BIN" --encrypt --recipients-file "$AGE_RECIPIENT_FILE" --output "$cipher" "$file"
+  [[ -s "$cipher" ]] || die "age produced an empty file: $name"
+  plain_sum="$(awk 'NR == 1 {print $1}' "${file}.sha256")"
+  cipher_sum="$(sha256_file "$cipher")"
+  { cat "${file}.manifest"; printf 'encryption=age\nage_sha256=%s\n' "$cipher_sum"; } >"$cmanifest"
+  "$AWS_BIN" s3 cp "$cipher" "s3://${R2_BUCKET}/${R2_PREFIX}/${name}.age" \
+    --endpoint-url "$R2_ENDPOINT" --only-show-errors
+  "$AWS_BIN" s3 cp "$cmanifest" "s3://${R2_BUCKET}/${R2_PREFIX}/${name}.age.manifest" \
+    --endpoint-url "$R2_ENDPOINT" --only-show-errors
+  rm -f -- "$cipher" "$cmanifest"
+  r2_check "$name" "$plain_sum"
 }
 
 prepare_dir() {
@@ -251,7 +274,7 @@ cmd_backup() {
   if [[ "$DRY_RUN" == true ]]; then
     log "dry-run: would pg_dump -Fc [$DATABASES] from $DB_CONTAINER into $BACKUP_DIR"
     log "dry-run: would verify catalog, sha256, manifest, modes 0700/0600"
-    [[ -z "$R2_CONFIG_FILE" ]] || log "dry-run: would copy to s3://<bucket>/$R2_PREFIX/ and read back"
+    [[ -z "$R2_CONFIG_FILE" ]] || log "dry-run: would age-encrypt, copy to s3://<bucket>/$R2_PREFIX/<name>.age and read back"
     [[ "$prune" == false ]] || log "dry-run: would prune artifacts older than $RETENTION_DAYS days"
     return 0
   fi

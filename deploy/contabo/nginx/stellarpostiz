@@ -1,7 +1,9 @@
 # /etc/nginx/sites-available/stellarpostiz (+ symlink in sites-enabled). Spec 5.3.
 # Name sorts after "listmonk", so the host's default (fallback) server block is unchanged.
-# Cloudflare (proxied, SSL mode Full) -> this host :443 with the self-signed *.stellarbyte.ca
-# origin cert -> 127.0.0.1:4007 = nginx inside stellarbyte-app (:5000), which routes
+# Cloudflare (proxied, SSL mode Full (strict) for this hostname only, via a Configuration Rule)
+# -> this host :443 with a Let's Encrypt cert for app.stellarbyte.ca (certbot dns-cloudflare,
+# auto-renewed by certbot.timer, deploy hook renewal-hooks/deploy/nginx-app-stellarbyte.sh
+# reloads nginx) -> 127.0.0.1:4007 = nginx inside stellarbyte-app (:5000), which routes
 # /api -> backend :3000 and everything else -> frontend :4200.
 # Real client IP: nginx.conf (http level) already has set_real_ip_from <Cloudflare ranges> +
 # real_ip_header CF-Connecting-IP, so $binary_remote_addr below is the visitor IP, not Cloudflare's.
@@ -27,8 +29,8 @@ server {
     listen 443 ssl;
     server_name app.stellarbyte.ca;
 
-    ssl_certificate /etc/ssl/certs/origin.crt;
-    ssl_certificate_key /etc/ssl/private/origin.key;
+    ssl_certificate /etc/letsencrypt/live/app.stellarbyte.ca/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.stellarbyte.ca/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
@@ -36,6 +38,9 @@ server {
     add_header X-Frame-Options SAMEORIGIN always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    # Baseline CSP: only directives that cannot break the Next.js bundle (no script-src yet,
+    # the app relies on inline scripts). Blocks framing by other sites, <base> hijacking and plugins.
+    add_header Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; object-src 'none'" always;
 
     # Framework fingerprint (Next.js / Express) is not needed by any client.
     proxy_hide_header X-Powered-By;
@@ -47,6 +52,12 @@ server {
     # pulls over 443 and reports the visitor scheme in X-Forwarded-Proto.
     if ($http_x_forwarded_proto = "http") {
         return 301 https://$host$request_uri;
+    }
+
+    # RFC 9116 contact for vulnerability reports.
+    location = /.well-known/security.txt {
+        default_type text/plain;
+        return 200 "Contact: mailto:support@stellarbyte.ca\nExpires: 2027-11-21T00:00:00Z\nPreferred-Languages: en, zh\nCanonical: https://app.stellarbyte.ca/.well-known/security.txt\n";
     }
 
     # Unauthenticated auth endpoints (backend routes /auth/* behind the container's /api prefix).

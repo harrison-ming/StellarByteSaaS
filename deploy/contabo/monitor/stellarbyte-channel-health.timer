@@ -1,0 +1,11 @@
+# /etc/systemd/system/stellarbyte-channel-health.timer: hourly.
+[Unit]
+Description=Hourly StellarByte channel and publishing health check
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
