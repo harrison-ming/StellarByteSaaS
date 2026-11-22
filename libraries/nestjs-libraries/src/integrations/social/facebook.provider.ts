@@ -299,6 +299,15 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
+  // Deauthorize / data deletion callbacks of the Meta app: user_id is the
+  // Facebook user, stored as rootInternalId on each of their Page channels
+  async platformCallbackAccount(signedRequest: string) {
+    return this.verifyMetaSignedRequest(
+      signedRequest,
+      process.env.FACEBOOK_APP_SECRET
+    );
+  }
+
   async generateAuthUrl() {
     const state = makeSecureId(6);
     return {

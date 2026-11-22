@@ -18,7 +18,6 @@ import { Plug } from '@gitroom/helpers/decorators/plug.decorator';
 import { Integration } from '@prisma/client';
 import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
-import { createHmac, timingSafeEqual } from 'crypto';
 
 export class ThreadsProvider extends SocialAbstract implements SocialProvider {
   identifier = 'threads';
@@ -111,40 +110,11 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
-  // Meta signed_request: base64url(HMAC-SHA256(payload, app secret)).base64url(payload)
   async platformCallbackAccount(signedRequest: string) {
-    const [signature, payload] = signedRequest.split('.');
-    if (!signature || !payload || !process.env.THREADS_APP_SECRET) {
-      return false;
-    }
-
-    const expected = createHmac('sha256', process.env.THREADS_APP_SECRET)
-      .update(payload)
-      .digest();
-    const received = Buffer.from(signature, 'base64url');
-    if (
-      received.length !== expected.length ||
-      !timingSafeEqual(received, expected)
-    ) {
-      return false;
-    }
-
-    try {
-      const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-      if (String(data.algorithm || '').toUpperCase() !== 'HMAC-SHA256') {
-        return false;
-      }
-      // A captured request must not be replayable after the user reconnects
-      if (
-        !data.issued_at ||
-        Math.abs(dayjs().unix() - Number(data.issued_at)) > 3600
-      ) {
-        return false;
-      }
-      return data.user_id ? String(data.user_id) : false;
-    } catch {
-      return false;
-    }
+    return this.verifyMetaSignedRequest(
+      signedRequest,
+      process.env.THREADS_APP_SECRET
+    );
   }
 
   async generateAuthUrl() {

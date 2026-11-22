@@ -1,4 +1,5 @@
 import { timer } from '@gitroom/helpers/utils/timer';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { Integration } from '@prisma/client';
 import {
   AuthTokenDetails,
@@ -244,6 +245,45 @@ export abstract class SocialAbstract {
   // axios flavor of the SSRF-safe dispatcher that `this.fetch` applies - for
   // providers that need axios (form-data / stream uploads). Never call plain
   // axios with a user-influenced URL.
+  // Meta signed_request (Facebook Login and Threads deauthorize / data
+  // deletion callbacks): base64url(HMAC-SHA256(payload, app secret)).payload.
+  // Returns the app-scoped user id, or false when unsigned, stale or invalid.
+  protected verifyMetaSignedRequest(
+    signedRequest: string,
+    appSecret?: string
+  ): string | false {
+    const [signature, payload] = (signedRequest || '').split('.');
+    if (!signature || !payload || !appSecret) {
+      return false;
+    }
+
+    const expected = createHmac('sha256', appSecret).update(payload).digest();
+    const received = Buffer.from(signature, 'base64url');
+    if (
+      received.length !== expected.length ||
+      !timingSafeEqual(received, expected)
+    ) {
+      return false;
+    }
+
+    try {
+      const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
+      if (String(data.algorithm || '').toUpperCase() !== 'HMAC-SHA256') {
+        return false;
+      }
+      // A captured request must not be replayable after the user reconnects
+      if (
+        !data.issued_at ||
+        Math.abs(Math.floor(Date.now() / 1000) - Number(data.issued_at)) > 3600
+      ) {
+        return false;
+      }
+      return data.user_id ? String(data.user_id) : false;
+    } catch {
+      return false;
+    }
+  }
+
   protected getSsrfSafeAxios() {
     return getSsrfSafeAxios();
   }

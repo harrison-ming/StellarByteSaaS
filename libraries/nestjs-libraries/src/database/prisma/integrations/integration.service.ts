@@ -403,10 +403,13 @@ export class IntegrationService {
       org,
       id
     );
-    const clearTokens = integration
-      ? await this.revokeChannelToken(integration)
-      : false;
-    return this._integrationRepository.deleteChannel(org, id, clearTokens);
+    if (integration) {
+      await this.revokeChannelToken(integration);
+    }
+    // A deleted channel never publishes again and reconnecting writes fresh
+    // tokens, so the stored grant is erased for every platform, not only the
+    // ones that can revoke it remotely (privacy policy: disconnect = erase).
+    return this._integrationRepository.deleteChannel(org, id, true);
   }
 
   // Account deletion: end the platform grants before the organization's
