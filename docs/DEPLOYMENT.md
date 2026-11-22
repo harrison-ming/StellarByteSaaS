@@ -47,7 +47,7 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 
 ## 3. 部署 / 更新镜像 tag
 
-tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增; 各 rN 的内容见 spec 7.1 节发布表与 8.1 节 tag 列表. **当前线上 r14 (2026-11-21 上线, commit c5504d25), 回滚目标 r13, 再往前 r12, r11**; 更早跳过 r10 (其移除回调对 Meta 的 multipart 请求返回 400), 用 r9. 服务器保留 r9 / r11 / r12 / r13 / r14 (2026-11-21 删旧镜像后根盘 59% → 33%); 回滚只改 tag, 见第 5 节.
+tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增; 各 rN 的内容见 spec 7.1 节发布表与 8.1 节 tag 列表. **当前线上 r15 (`stellarbyte-v2.26.0-r15`, 上游 v2.26.0 + 本 fork 全部补丁, 2026-11-22 上线, commit 2b144551), 回滚目标 r14, 再往前 r13, r12, r11**; 更早跳过 r10 (其移除回调对 Meta 的 multipart 请求返回 400), 用 r9. 服务器保留 r9 / r11 / r12 / r13 / r14 / r15 (2026-11-21 删旧镜像后根盘 59% → 33%); 回滚只改 tag, 见第 5 节.
 
 ```bash
 # 0. 本机: 打 tag 推送, 等 CI "Build StellarByte image" 成功
@@ -80,7 +80,7 @@ worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --
 
 ## 5. 回滚
 
-- **只回滚 app**: 在当前 `.env` 上只把 `STELLARBYTE_TAG` 改回上一 tag (同第 3 节的 `sed`, 本机主源同改), `docker compose up -d --no-deps app`. 旧镜像在服务器上保留 (第 3 节), 不要在验收前 prune. **不要整份 `cp .env.pre-*`**: 副本只代表当时那一刻, 会丢掉之后加的变量 (例: 当时的 `.env.pre-r7` (已删) 缺 `GOOGLE_GMB_*` / `LINKEDIN_PAGE_*`, GMB 会回退到 stellar-dev 的 client). r8 及更早的镜像已不在服务器上, 要回到那些版本先 `docker compose pull app`. **r14 → r13**: 只改 tag, 无库改动; 回滚后删除频道又只清空 YouTube 的 token (其他平台 token 留在已删除行), Facebook 移除 / 删除回调回到 400. **r13 → r12**: 只改 tag, 无库改动 (r13 无 Prisma schema 变更); `DISABLE_SWAGGER` 可留, 但 r12 不认它, `/api/docs` 会重新可见; r12 在关闭注册时也不放行持邀请的新用户, 回滚期间新客户无法经邀请注册; r13 的 SSRF 连接层校验, 跨组织写帖校验, 会话 30 天过期与改密码作废会话等加固 (第 12.1 节) 全部失效. **r12 → r11**: 只改 tag, 无库改动; r12 下重连的 TikTok Business 频道在 r11 照常发帖, 统计页的粉丝 / 关注 / 获赞 / 视频数仍可用 (token 已带 `user.insights`), 但 r11 新授权的频道不再请求该 scope. **r11 → r9**: 只改 tag (不要回到 r10); `DATA_DELETION_URL` 可留; 回滚期间 Meta 的移除 / 删除回调会 404, Threads 用户移除 app 后频道不会自动清理, 回到 r11 后人工处理. **r9 → r8**: 只改 tag, 无库改动; 回滚后删除 YouTube 频道不再作废 Google 授权 (token 留在已删除行). **r8 → r7**: 只改 tag, `YOUTUBE_CLIENT_*` 保持 `stellarbyte-youtube` 不动: 已接入 YouTube 频道的 refresh token 由该 client 签发, 换回 stellar-dev 的旧 client (BW `cfc8d358-…`) 会让它刷新失败; r7 按 8 个 scope 发起授权而该 client 只登记了 5 个, 回滚期间不要新连或 Reconnect YouTube. **r7 及更早**: 不建议 (r6 不认 `LINKEDIN_PAGE_*`, 已接入的 LinkedIn 公司页发帖与刷新会失败); 必须时改 tag 并在两边 `HIDDEN_PROVIDERS` 加回 `linkedin-page`, 回到 r7+ 后 Reconnect.
+- **只回滚 app**: 在当前 `.env` 上只把 `STELLARBYTE_TAG` 改回上一 tag (同第 3 节的 `sed`, 本机主源同改), `docker compose up -d --no-deps app`. 旧镜像在服务器上保留 (第 3 节), 不要在验收前 prune. **不要整份 `cp .env.pre-*`**: 副本只代表当时那一刻, 会丢掉之后加的变量 (例: 当时的 `.env.pre-r7` (已删) 缺 `GOOGLE_GMB_*` / `LINKEDIN_PAGE_*`, GMB 会回退到 stellar-dev 的 client). r8 及更早的镜像已不在服务器上, 要回到那些版本先 `docker compose pull app`. **r15 → r14**: 只改 tag; r15 自动建的 5 个索引 (Post / Notifications / Errors / User) r14 用不到但无害, 不用删; 若已开启 `ENCRYPTION_PROVIDER` (token 落库加密), 回滚前必须先关掉并跑解密, 否则 r14 读不了加密 token, 所有频道失效. **r14 → r13**: 只改 tag, 无库改动; 回滚后删除频道又只清空 YouTube 的 token (其他平台 token 留在已删除行), Facebook 移除 / 删除回调回到 400. **r13 → r12**: 只改 tag, 无库改动 (r13 无 Prisma schema 变更); `DISABLE_SWAGGER` 可留, 但 r12 不认它, `/api/docs` 会重新可见; r12 在关闭注册时也不放行持邀请的新用户, 回滚期间新客户无法经邀请注册; r13 的 SSRF 连接层校验, 跨组织写帖校验, 会话 30 天过期与改密码作废会话等加固 (第 12.1 节) 全部失效. **r12 → r11**: 只改 tag, 无库改动; r12 下重连的 TikTok Business 频道在 r11 照常发帖, 统计页的粉丝 / 关注 / 获赞 / 视频数仍可用 (token 已带 `user.insights`), 但 r11 新授权的频道不再请求该 scope. **r11 → r9**: 只改 tag (不要回到 r10); `DATA_DELETION_URL` 可留; 回滚期间 Meta 的移除 / 删除回调会 404, Threads 用户移除 app 后频道不会自动清理, 回到 r11 后人工处理. **r9 → r8**: 只改 tag, 无库改动; 回滚后删除 YouTube 频道不再作废 Google 授权 (token 留在已删除行). **r8 → r7**: 只改 tag, `YOUTUBE_CLIENT_*` 保持 `stellarbyte-youtube` 不动: 已接入 YouTube 频道的 refresh token 由该 client 签发, 换回 stellar-dev 的旧 client (BW `cfc8d358-…`) 会让它刷新失败; r7 按 8 个 scope 发起授权而该 client 只登记了 5 个, 回滚期间不要新连或 Reconnect YouTube. **r7 及更早**: 不建议 (r6 不认 `LINKEDIN_PAGE_*`, 已接入的 LinkedIn 公司页发帖与刷新会失败); 必须时改 tag 并在两边 `HIDDEN_PROVIDERS` 加回 `linkedin-page`, 回到 r7+ 后 Reconnect.
 - **数据库也要回滚** (上游 schema 变更): 停 app -> 用升级前的 dump 恢复 (第 6.4 节, 三库同一组) -> 起旧 tag. `prisma db push` 每次启动都会跑, 不可逆的列删除只能靠 dump 恢复.
 
 ## 6. 备份与恢复
@@ -282,7 +282,7 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 
 ### 12.3 授权与 token 长期可用
 
-事实 (代码已核实, v2.25.3 + r13):
+事实 (代码已核实, v2.26.0 + r15):
 
 - `Integration` 表的 `token` / `refreshToken` 明文存储 (`integration.repository.ts`, 上游设计, 未改), 不用 `JWT_SECRET` 加密: 轮换 `JWT_SECRET` 只让用户会话掉线, 不影响任何频道 token. 因此本地 dump 等同全部频道授权 (第 6.1 节).
 - Pinterest: access token 30 天; continuous refresh token 60 天, 每次刷新轮换 (r4 起保存新 refresh token, spec L1').
