@@ -22,7 +22,7 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 发信: Stalwart app-noreply@stellarbyte.ca -> mx.stellarbyte.ca:587 STARTTLS (容器出站 25 被 DOCKER-USER 丢弃)
 ```
 
-- 代码: GitHub `harrison-ming/StellarByteSaaS` 分支 `stellarbyte` = 上游 Postiz `v2.25.3` + StellarByte 补丁 (spec 3 节). 远端 `main` 仍是旧 fork 历史 (tag `legacy/v2.7-fork`).
+- 代码: GitHub `harrison-ming/StellarByteSaaS` 分支 `stellarbyte` = 上游 Postiz `v2.26.0` + StellarByte 补丁 (spec 3 节; 当前基线记在根目录 `UPSTREAM_BASE`). 远端 `main` 仍是旧 fork 历史 (tag `legacy/v2.7-fork`).
 - 镜像: `ghcr.io/harrison-ming/stellarbyte-app:<tag>` (公开包, 由 `.github/workflows/build-stellarbyte.yml` 在推 tag `stellarbyte-*` 时构建 amd64). Contabo 只 pull, **禁止在 Contabo 上构建**.
 - 同机还有 Stalwart (16 域名) 与 Listmonk, 都是生产服务; 任何主机级改动前后都跑 `/usr/local/bin/stalwart-health.sh` (须 16/16 OK). 资源限额与网络隔离见 spec 5 节, 不得放宽.
 - 公开 API: `https://app.stellarbyte.ca/api/public/v1`, header `Authorization: <组织 API key>`. 主源 BW 条目见第 2 节 Bitwarden 行, 运行时副本 Windmill secret `u/harrisonvancouver/stellarbyte_api_key`; 轮换须两处同改. 调用方之一 `host/Windmill/totvan_web/fb_share.py` (FB 主页 Totvan, 2026-11-19 起). API 文档页 `/api/docs` 与 `/api/docs-json` 由 `DISABLE_SWAGGER="true"` 关闭 (r13 起, 两边 `.env` 已设, 返回 404).
@@ -32,7 +32,7 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 | 位置 | 内容 |
 |---|---|
 | 仓库 `deploy/contabo/` | `docker-compose.yml`, `docker-compose.local.yml` (本机试跑 override), `.env.example`, `postgres/init/10-databases.sh`, `temporal/dynamicconfig/`, `nginx/stellarpostiz`, `firewall/`, `backup/` (脚本 + systemd 单元模板), `signup-notify/` (新注册 Discord 通知, r6), `monitor/` (频道健康检查, 2026-11-21) |
-| 服务器 `/opt/stellarpostiz/` | `docker-compose.yml`, `.env` (600), `.env.pre-closereg` / `.env.pre-r12` / `.env.pre-r13` (改 `.env` 前的副本, 含密钥, 600; 2026-11-21 起只留最近 3 份, 更早的已删; 只代表当时那一刻, 回滚时不要整份 `cp`, 见第 5 节), `docker-compose.yml.pre-r6`, `postgres/init/`, `temporal/` (均从仓库复制), `backups/` (700), `decommission-20260908/` (旧 nginx 站点存档). 加 `no-new-privileges` 前的 compose 副本在 `/root/docker-compose.yml.pre-nnp` |
+| 服务器 `/opt/stellarpostiz/` | `docker-compose.yml`, `.env` (600), `.env.pre-*` (改 `.env` 前的副本, 含密钥, 600; 现有 `pre-closereg` / `pre-r12` / `pre-r13` / `pre-r14` / `pre-r15`, 只留最近几份), `docker-compose.yml.pre-r6`, `postgres/init/`, `temporal/` (均从仓库复制), `backups/` (700), `decommission-20260908/` (旧 nginx 站点存档). 加 `no-new-privileges` 前的 compose 副本在 `/root/docker-compose.yml.pre-nnp` |
 | 服务器 `/usr/local/sbin/` | `stellarbyte-backup.sh`, `stellarbyte-docker-user-fw.sh`, `stellarbyte-signup-notify.sh`, `stellarbyte-channel-health.sh`, 共用 `notify-command-status.sh` (Discord 告警), 主机级 `host-resource-check.sh` (源码 `STELLAR INFRA/machines/contabo/host-monitor/`) |
 | 服务器 `/etc/systemd/system/` | `stellarbyte-backup.{service,timer}`, `stellarbyte-backup-watchdog.{service,timer}`, `stellarbyte-docker-user-fw.service`, `stellarbyte-signup-notify.{service,timer}`, `stellarbyte-channel-health.{service,timer}`; 主机级 `host-resource-check.{service,timer}` |
 | 服务器 `/etc/nginx/sites-available/stellarpostiz` | 站点 (symlink 到 sites-enabled) |
@@ -43,22 +43,22 @@ supersedes: 107 Mac + Cloudflare Tunnel 时代的部署指南 (旧版本文, 见
 | 本机 `STELLAR CONFIG/StellarByteSaaS/.env.production` (600) | 生产 `.env` **主源**; 改动先改这里再同步到服务器 |
 | 本机 `STELLAR CONFIG/StellarByteSaaS/credentials.md` / `r2-backup.env` (600) | 凭据索引 (无明文) / 备份桶 R2 token 本机副本. 组织与 integration 映射在本仓库 [integrations.md](integrations.md) |
 | 本机 `STELLAR CONFIG/StellarByteSaaS/google-oauth-client.json` (600) | Google 登录 client (GCP 项目 `stellarbyte-scheduler-login`, spec D19); 值已进 `.env` 的 `GOOGLE_LOGIN_CLIENT_ID/SECRET` |
-| Bitwarden | OAuth: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, YouTube 旧 client `cfc8d358-…` (stellar-dev, r8 起不再使用; 新 client `stellarbyte-youtube` 的 JSON 在 `STELLAR CONFIG/StellarByteSaaS/youtube-oauth-client-stellarbyte-youtube.json`, BW 备份 `StellarByte Google OAuth - stellarbyte-youtube` `ff4b845c-…`, 2026-11-21 建); Google 登录 client `StellarByte Google OAuth - stellarbyte-scheduler-login`; GMB client `StellarByte Google OAuth - stellarbyte-gbp` `e06cff8b-…`; LinkedIn 公司页 app `LinkedIn App - StellarByte Pages` `c01a564c-…` (后两条 2026-11-12 写入, 映射表见 `credentials.md`); 授权操作员 app-ops 的邮箱与 SaaS 登录条目 (spec D26, 2026-11-19 建, UUID 见 `credentials.md`); 组织 API key `StellarByteSaaS - Org API Key (StellarByte)` `36fbd054-…` (2026-11-19 建, Organization 字段的组织 ID 待补); TikTok for Business app `TikTok Business App - StellarByte Social Publisher` `6cbf0903-…` (2026-11-21 建, 主源 `.env.production`); 备份解密私钥 `Stellar Backup - Age Key` (文件夹 Infrastructure/backup, 与 Countly 等备份共用, 私钥只在 BW) |
+| Bitwarden | OAuth: Pinterest `c5fd1a75-…`, LinkedIn `c1153ce7-…`, YouTube 旧 client `cfc8d358-…` (stellar-dev, r8 起不再使用; 新 client `stellarbyte-youtube` 的 JSON 在 `STELLAR CONFIG/StellarByteSaaS/youtube-oauth-client-stellarbyte-youtube.json`, BW 备份 `StellarByte Google OAuth - stellarbyte-youtube` `ff4b845c-…`, 2026-11-21 建); Google 登录 client `StellarByte Google OAuth - stellarbyte-scheduler-login`; GMB client `StellarByte Google OAuth - stellarbyte-gbp` `e06cff8b-…`; LinkedIn 公司页 app `LinkedIn App - StellarByte Pages` `c01a564c-…` (后两条 2026-11-12 写入, 映射表见 `credentials.md`); 授权操作员 app-ops 的邮箱与 SaaS 登录条目 (spec D26, 2026-11-19 建, UUID 见 `credentials.md`); 组织 API key `StellarByteSaaS - Org API Key (StellarByte)` `36fbd054-…` (2026-11-19 建; 组织 ID 见 integrations.md 第 2 节); TikTok for Business app `TikTok Business App - StellarByte Social Publisher` `6cbf0903-…` (2026-11-21 建, 主源 `.env.production`); 备份解密私钥 `Stellar Backup - Age Key` (文件夹 Infrastructure/backup, 与 Countly 等备份共用, 私钥只在 BW) |
 
 ## 3. 部署 / 更新镜像 tag
 
-tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增; 各 rN 的内容见 spec 7.1 节发布表与 8.1 节 tag 列表. **当前线上 r15 (`stellarbyte-v2.26.0-r15`, 上游 v2.26.0 + 本 fork 全部补丁, 2026-11-22 上线, commit 2b144551), 回滚目标 r14, 再往前 r13, r12, r11**; 更早跳过 r10 (其移除回调对 Meta 的 multipart 请求返回 400), 用 r9. 服务器保留 r9 / r11 / r12 / r13 / r14 / r15 (2026-11-21 删旧镜像后根盘 59% → 33%); 回滚只改 tag, 见第 5 节.
+tag 规则: `stellarbyte-<上游tag>[-rN]`. 已推送的 tag 不改写, 同一上游版本的修订用 `-rN` 递增; 各 rN 的内容见 spec 7.1 节发布表与 8.1 节 tag 列表. **当前线上 r15 (`stellarbyte-v2.26.0-r15`, 上游 v2.26.0 + 本 fork 全部补丁, 2026-11-22 上线, commit 2b144551), 回滚目标 r14, 再往前 r13, r12, r11**; 更早跳过 r10 (其移除回调对 Meta 的 multipart 请求返回 400), 用 r9. 服务器保留 r9 / r11 / r12 / r13 / r14 / r15 (每个约 7GB); 回滚只改 tag, 见第 5 节.
 
 ```bash
 # 0. 本机: 打 tag 推送, 等 CI "Build StellarByte image" 成功
-git tag stellarbyte-v2.25.3-rN && git push origin stellarbyte-v2.25.3-rN
+git tag stellarbyte-v2.26.0-rN && git push origin stellarbyte-v2.26.0-rN   # 上游部分按 UPSTREAM_BASE
 gh run list -R harrison-ming/StellarByteSaaS -L 3
 
 # 1. 服务器: 升级前手动备份一次 (回滚 Postgres 只能靠它)
 ssh root@161.97.184.77 'systemctl start stellarbyte-backup.service && systemctl status stellarbyte-backup.service --no-pager | grep Active'
 
 # 2. 改 tag: 本机主源 .env.production 与服务器 /opt/stellarpostiz/.env 两边同改 STELLARBYTE_TAG
-ssh root@161.97.184.77 'cd /opt/stellarpostiz && cp -p .env .env.pre-rN && sed -i "s/^STELLARBYTE_TAG=.*/STELLARBYTE_TAG=\"stellarbyte-v2.25.3-rN\"/" .env'
+ssh root@161.97.184.77 'cd /opt/stellarpostiz && cp -p .env .env.pre-rN && sed -i "s/^STELLARBYTE_TAG=.*/STELLARBYTE_TAG=\"stellarbyte-v2.26.0-rN\"/" .env'
 
 # 3. 拉镜像 + 只重建 app (postgres/redis/temporal 不动)
 ssh root@161.97.184.77 'cd /opt/stellarpostiz && docker compose pull app && docker compose up -d --no-deps app'
@@ -80,7 +80,7 @@ worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --
 
 ## 5. 回滚
 
-- **只回滚 app**: 在当前 `.env` 上只把 `STELLARBYTE_TAG` 改回上一 tag (同第 3 节的 `sed`, 本机主源同改), `docker compose up -d --no-deps app`. 旧镜像在服务器上保留 (第 3 节), 不要在验收前 prune. **不要整份 `cp .env.pre-*`**: 副本只代表当时那一刻, 会丢掉之后加的变量 (例: 当时的 `.env.pre-r7` (已删) 缺 `GOOGLE_GMB_*` / `LINKEDIN_PAGE_*`, GMB 会回退到 stellar-dev 的 client). r8 及更早的镜像已不在服务器上, 要回到那些版本先 `docker compose pull app`. **r15 → r14**: 只改 tag; r15 自动建的 5 个索引 (Post / Notifications / Errors / User) r14 用不到但无害, 不用删; 若已开启 `ENCRYPTION_PROVIDER` (token 落库加密), 回滚前必须先关掉并跑解密, 否则 r14 读不了加密 token, 所有频道失效. **r14 → r13**: 只改 tag, 无库改动; 回滚后删除频道又只清空 YouTube 的 token (其他平台 token 留在已删除行), Facebook 移除 / 删除回调回到 400. **r13 → r12**: 只改 tag, 无库改动 (r13 无 Prisma schema 变更); `DISABLE_SWAGGER` 可留, 但 r12 不认它, `/api/docs` 会重新可见; r12 在关闭注册时也不放行持邀请的新用户, 回滚期间新客户无法经邀请注册; r13 的 SSRF 连接层校验, 跨组织写帖校验, 会话 30 天过期与改密码作废会话等加固 (第 12.1 节) 全部失效. **r12 → r11**: 只改 tag, 无库改动; r12 下重连的 TikTok Business 频道在 r11 照常发帖, 统计页的粉丝 / 关注 / 获赞 / 视频数仍可用 (token 已带 `user.insights`), 但 r11 新授权的频道不再请求该 scope. **r11 → r9**: 只改 tag (不要回到 r10); `DATA_DELETION_URL` 可留; 回滚期间 Meta 的移除 / 删除回调会 404, Threads 用户移除 app 后频道不会自动清理, 回到 r11 后人工处理. **r9 → r8**: 只改 tag, 无库改动; 回滚后删除 YouTube 频道不再作废 Google 授权 (token 留在已删除行). **r8 → r7**: 只改 tag, `YOUTUBE_CLIENT_*` 保持 `stellarbyte-youtube` 不动: 已接入 YouTube 频道的 refresh token 由该 client 签发, 换回 stellar-dev 的旧 client (BW `cfc8d358-…`) 会让它刷新失败; r7 按 8 个 scope 发起授权而该 client 只登记了 5 个, 回滚期间不要新连或 Reconnect YouTube. **r7 及更早**: 不建议 (r6 不认 `LINKEDIN_PAGE_*`, 已接入的 LinkedIn 公司页发帖与刷新会失败); 必须时改 tag 并在两边 `HIDDEN_PROVIDERS` 加回 `linkedin-page`, 回到 r7+ 后 Reconnect.
+- **只回滚 app**: 在当前 `.env` 上只把 `STELLARBYTE_TAG` 改回上一 tag (同第 3 节的 `sed`, 本机主源同改), `docker compose up -d --no-deps app`. 旧镜像在服务器上保留 (第 3 节), 不要在验收前 prune. **不要整份 `cp .env.pre-*`**: 副本只代表当时那一刻, 会丢掉之后加的变量 (例: 旧副本缺 `GOOGLE_GMB_*` / `LINKEDIN_PAGE_*` 时 GMB 会回退到 stellar-dev 的 client). **r15 → r14**: 只改 tag; r15 自动建的 5 个索引 (Post / Notifications / Errors / User) r14 用不到但无害, 不用删; 若已开启 `ENCRYPTION_PROVIDER` (token 落库加密), 回滚前必须先关掉并跑解密, 否则 r14 读不了加密 token, 所有频道失效. **r14 → r13**: 只改 tag, 无库改动; 回滚后删除频道又只清空 YouTube 的 token (其他平台 token 留在已删除行), Facebook 移除 / 删除回调回到 400. **r13 → r12**: 只改 tag, 无库改动 (r13 无 Prisma schema 变更); `DISABLE_SWAGGER` 可留, 但 r12 不认它, `/api/docs` 会重新可见; r12 在关闭注册时也不放行持邀请的新用户, 回滚期间新客户无法经邀请注册; r13 的 SSRF 连接层校验, 跨组织写帖校验, 会话 30 天过期与改密码作废会话等加固 (第 12.1 节) 全部失效. **r12 → r11**: 只改 tag, 无库改动; r12 下重连的 TikTok Business 频道在 r11 照常发帖, 统计页的粉丝 / 关注 / 获赞 / 视频数仍可用 (token 已带 `user.insights`), 但 r11 新授权的频道不再请求该 scope. **r11 → r9**: 只改 tag (不要回到 r10); `DATA_DELETION_URL` 可留; 回滚期间 Meta 的移除 / 删除回调会 404, Threads 用户移除 app 后频道不会自动清理, 回到 r11 后人工处理. **r9 之前不作为回滚目标** (镜像已删, 历史见 spec 7.1); 任何情况下不得换回 stellar-dev 的 YouTube client, 也不得去掉 `LINKEDIN_PAGE_*` / `GOOGLE_GMB_*` (第 12.3 节).
 - **数据库也要回滚** (上游 schema 变更): 停 app -> 用升级前的 dump 恢复 (第 6.4 节, 三库同一组) -> 起旧 tag. `prisma db push` 每次启动都会跑, 不可逆的列删除只能靠 dump 恢复.
 
 ## 6. 备份与恢复
@@ -89,7 +89,7 @@ worker 检查: `docker exec stellarbyte-temporal temporal task-queue describe --
 
 - `stellarbyte-backup.timer` 每天 03:45 UTC: 三个库 `pg_dump -Fc` -> 校验 -> sha256 + manifest -> `/opt/stellarpostiz/backups/` (保留 14 天) -> age 加密 -> 上传 R2 `stellarbyte-backups/stellarbyte/` 并回读校验密文哈希 (桶 lifecycle 35 天).
 - 出机加密 (2026-11-21 起, 源码 `deploy/contabo/backup/`): 每份 dump 先用 `/root/.config/stellarbyte/age.pub` (共用 Stellar Backup 公钥) 加密再上传; R2 前缀 `stellarbyte/` 只有 `<name>.dump.age` 与 `<name>.dump.age.manifest` (manifest 记明文 `sha256` 与密文 `age_sha256`). 私钥只在 Bitwarden `Stellar Backup - Age Key` (Infrastructure/backup), 服务器上没有. R2 里此前的 297 个明文对象已于 2026-11-21 全部删除.
-- 本地副本仍是明文 (root, 目录 0700 / 文件 0600, 14 天), 用于快速恢复. `Integration` 表的社媒 token / refresh token 是明文 (第 12.3 节), 拿到本地 dump 即拿到全部频道授权: 本地 dump 不得复制出服务器.
+- 本地副本仍是明文 (root, 目录 0700 / 文件 0600, 14 天), 用于快速恢复. `Integration` 表的社媒 token / refresh token 当前是明文 (r15 支持的落库加密未开启, 第 12.3 节), 拿到本地 dump 即拿到全部频道授权: 本地 dump 不得复制出服务器.
 - `stellarbyte-backup-watchdog.timer` 每小时 :50: 最新一组须 26h 内, 有效, 且 R2 上有对应 `.age` 副本; 失败经 `notify-command-status.sh` 发 Discord (首次失败 + 恢复各一条).
 - 媒体在 R2 `stellar-postiz`, 不在备份范围 (R2 自身持久化). Redis 只放队列/缓存, 不备份.
 
@@ -135,7 +135,7 @@ cd $W && sha256sum -c $f.sha256 && /usr/local/sbin/stellarbyte-backup.sh restore
 cd / && rm -f $W/* && rmdir $W
 ```
 
-最近: 2026-11-21 离机 (R2 密文) 演练 PASS (r6 之后首次): `stellarbyte-stellarbyte-20261122T051927Z.dump` 的密文下载后按上法解密, sha256 一致, 恢复到临时库后全部表计数与线上一致, 临时库已删. 上一次是 2026-11-04 (明文时期, 88 张表一致).
+最近: 2026-11-21 离机 (R2 密文) 演练 PASS: `stellarbyte-stellarbyte-20261122T051927Z.dump` 解密后 sha256 一致, 恢复到临时库全部表计数与线上一致, 临时库已删. 下次: r15 (上游 v2.26.0, 新增索引) 后补一次.
 
 ### 6.4 真实恢复
 
@@ -155,7 +155,7 @@ docker compose up -d
 |---|---|---|
 | 外部存活 (`/auth/login` + `/api/` 每 5 分钟, 失败重试一次, 只在状态变化时发) | Windmill `u/harrisonvancouver/ops/stellarbyte_liveness_check` + schedule `ops/stellarbyte_liveness_schedule`; 源码 `host/Windmill/ops/stellarbyte_liveness_check.py` | Discord #errors (DOWN / RECOVERED) |
 | 备份 / watchdog | systemd 单元 (第 6 节); Stalwart 备份同理 (`stalwart-backup*.timer`, 见 INFRA vps 文档) | Discord #errors (ALERT / RECOVERY, 只在状态变化时发) |
-| 频道健康 (每小时: 频道 `refreshNeeded` 或 `inBetweenSteps`; 没有 refresh token 的 token 14 天内到期; 近 26h 有帖子变 ERROR; 排队帖逾期超过 30 分钟) | `stellarbyte-channel-health.timer` (源码 `deploy/contabo/monitor/`, 2026-11-21 起), 经 `notify-command-status.sh` 包装 | Discord #errors (首次失败 + 恢复各一条). 首跑报的是 TikTok 旧测试帖 `cmwqugpxo` (域名验证前的 ERROR), 26h 后自动出窗口 |
+| 频道健康 (每小时: 频道 `refreshNeeded` 或 `inBetweenSteps`; 没有 refresh token 的 token 14 天内到期; 近 26h 有帖子变 ERROR; 排队帖逾期超过 30 分钟) | `stellarbyte-channel-health.timer` (源码 `deploy/contabo/monitor/`, 2026-11-21 起), 经 `notify-command-status.sh` 包装 | Discord #errors (首次失败 + 恢复各一条) |
 | 容器健康 | compose healthcheck + `restart: unless-stopped` | 无主动告警, 由外部存活覆盖 |
 | 新注册通知 (每 5 分钟, 只读查询 `User` 表新行, 按水位线逐条发: 时间 / 邮箱 / 组织 / provider) | `stellarbyte-signup-notify.timer` (源码 `deploy/contabo/signup-notify/`); 看水位线与待发数 `stellarbyte-signup-notify.sh status` | Discord `#stellarbyte-signups` (Ops 分类, webhook); 脚本失败经 `notify-command-status.sh` 发 #errors (`stellarbyte-signup-notify`) |
 | 主机资源 (每 10 分钟: 根盘 > 85%, MemAvailable < 12%, swap 用量 > 1G, 新的内核 OOM kill) | `host-resource-check.timer`; 看数值 `host-resource-check.sh status` | Discord #errors (`host-resource-disk/-mem/-swap/-oom`, 状态变化时发) |
@@ -198,7 +198,7 @@ systemctl start stellarbyte-backup-watchdog.service                             
 - 回源头: `X-Forwarded-For` 用 `$remote_addr` (即 `real_ip_header CF-Connecting-IP` 还原后的访客 IP) 覆盖, 不追加客户端自带的值; app 的限流器 (throttler) 也优先取 `CF-Connecting-IP` (r13).
 - 登录限速: `/api/auth/{login,register,forgot,forgot-return,activate,resend-activation}` 按访客真实 IP `10r/m burst=5 nodelay`, 超出 429. location 为 `~*` (不分大小写) 且允许结尾多余路径 / 斜杠, 2026-11-21 修掉了改大小写或加结尾斜杠绕过限速的问题, 实测 429. 2026-11-04 实测连续错误密码第 6 次起 429, 约 1 分钟后恢复. 查: `grep ' 429 ' /var/log/nginx/access.log` (拒绝日志是 warn 级, error.log 不记).
 - 仓库副本与服务器必须一致: `sha256sum /etc/nginx/sites-available/stellarpostiz` 对比 `deploy/contabo/nginx/stellarpostiz`.
-- 源站证书 (2026-11-21 起): Let's Encrypt `app.stellarbyte.ca` (`/etc/letsencrypt/live/app.stellarbyte.ca/`), certbot dns-cloudflare 插件 (凭据 `/root/.secrets/cloudflare.ini`), `certbot.timer` 自动续期, deploy hook `nginx-app-stellarbyte.sh` 续期后 reload nginx. Cloudflare 用 Configuration Rule 只对主机名 `app.stellarbyte.ca` 设 SSL Full (strict); **zone 级仍是 Full, 不得改 strict**: 其他子域 (listmonk-api / smtp-admin 等) 仍用自签名 `*.stellarbyte.ca` 源站证书 `/etc/ssl/certs/origin.crt`, 改 zone 会让它们 526. 没用 Cloudflare Origin CA 是因为现有 Cloudflare API token 无权签发 (报错 1016).
+- 源站证书: Let's Encrypt `app.stellarbyte.ca` (路径, 凭据与 deploy hook 见第 2 节), `certbot.timer` 自动续期. Cloudflare 用 Configuration Rule 只对主机名 `app.stellarbyte.ca` 设 SSL Full (strict); **zone 级仍是 Full, 不得改 strict**: 其他子域 (listmonk-api / smtp-admin 等) 仍用自签名 `*.stellarbyte.ca` 源站证书 `/etc/ssl/certs/origin.crt`, 改 zone 会让它们 526. 没用 Cloudflare Origin CA 是因为现有 Cloudflare API token 无权签发 (报错 1016).
 - `media.stellarbyte.ca` (R2 自定义域): Cloudflare 响应头 Transform Rule 加 HSTS `max-age=31536000` 与 nosniff (2026-11-21).
 - DNS: proxied A `app` -> 161.97.184.77; `media` 为 R2 自定义域. 台账 `STELLAR INFRA/DEPLOY/cloudflare/usage-by-project.md`.
 - Cloudflare 会自动注入 `static.cloudflareinsights.com` (zone RUM), 是 r5 之后唯一已知的第三方请求 (Stripe.js 只在配置了 Stripe key 时加载, 国旗图标自托管于 `/icons/flags/`).
@@ -224,7 +224,7 @@ systemctl start stellarbyte-backup-watchdog.service                             
 
 - **注册已关闭** (2026-11-21, spec D27): `DISABLE_REGISTRATION="true"` (主源 `.env.production` 与服务器 `.env`, 改前副本 `.env.pre-closereg`; compose 用 `${DISABLE_REGISTRATION:-true}` 插值, 未设置时默认关闭). `/api/auth/can-register` 返回 false. 客户经团队邀请加入: 持有效且未使用的邀请 (`org` cookie) 的人仍可注册 (r13); 没有邀请的注册返回 "Registration is disabled", 且该判断在查邮箱之前, 不暴露邮箱是否已注册. 本地邮箱注册须点激活邮件; Google 注册直接激活. 每个新注册约 5 分钟内发到 Discord `#stellarbyte-signups` (第 7 节).
 - **重新开放注册**: 两边 `.env` 改 `DISABLE_REGISTRATION="false"`, 然后 `cd /opt/stellarpostiz && docker compose up -d --no-deps app` (约 1-3 分钟 healthy); 关闭同理改回 `"true"`. 已有用户不受影响.
-- **会话 (r13)**: auth cookie `SameSite=Lax` (域仍是 `.stellarbyte.ca`); 会话 JWT 30 天过期, 并带密码哈希的 HMAC 指纹 (`sv`), 改密码 / 重置密码后旧会话全部失效, 重置与邀请 token 不能再当会话用. r13 上线时 r13 之前的会话全部作废, 用户需重新登录. OAuth app (`pos_` 前缀) token 在批准它的用户被删除, 或被移出 / 停用于该组织后失效.
+- **会话 (r13)**: auth cookie `SameSite=Lax` (域仍是 `.stellarbyte.ca`); 会话 JWT 30 天过期, 并带密码哈希的 HMAC 指纹 (`sv`), 改密码 / 重置密码后旧会话全部失效, 重置与邀请 token 不能再当会话用. OAuth app (`pos_` 前缀) token 在批准它的用户被删除, 或被移出 / 停用于该组织后失效.
 - **管理员 (超管)**: 经团队邀请注册 (或临时重新开放注册), 之后授超管 (可见 "Agents / Dev" 与 "Apps" 设置页, D10):
 
 ```bash
@@ -263,11 +263,11 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
   - 前置条件: HubStudio (规则 `STELLAR INFRA/DEPLOY/hubstudio/AGENTS.md`); 账号分组, 试点号与各号进度只记在 `authorization-checklist.md` 第 2 节台账. 批量授权前的两项 (恢复演练, 备份加密) 已于 2026-11-21 完成 (第 6 节); 其余前置见第 12.3 节待办表.
 - **Facebook Page** (2026-11-07 起, spec D24): Meta app `StellarPage` (App ID `4160936944155117`, Business 类型, 已过审并 Published), 环境变量 `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` (主源 `.env.production`). 代码请求的 5 个权限 `pages_show_list` / `business_management` / `pages_manage_posts` / `pages_read_engagement` / `read_insights` 须全部为 live (Advanced), 任一不是则非 app 角色用户授权报 "Invalid Scopes". 核对: `GET https://graph.facebook.com/v21.0/4160936944155117/permissions?access_token=<APP_ID>|<SECRET>` (不要把 secret 打到终端). 回调 `https://app.stellarbyte.ca/integrations/social/facebook` 在 Facebook Login for Business 设置里登记. 只覆盖 Facebook Page: "Instagram (Facebook Business)" 共用这组变量, 但 `instagram_*` 权限未提审, 不要对用户开放.
 - **TikTok** (`tiktok`, Content Posting API, 2026-11-17 起): developers.tiktok.com app `StellarByte` (ID 7565701807872346168, Ownership Individual, Login Kit + Content Posting API, Direct Post 已开但从未申请审计) (client key 前缀 `awtt`), 变量 `TIKTOK_CLIENT_ID` / `TIKTOK_CLIENT_SECRET` (BW `TikTok Developer App - StellarByte` `eb9775c2-…` → `.env.production`). 两边 `.env` 已配 (2026-11-17). 回调 `https://app.stellarbyte.ca/integrations/social/tiktok` 已登记; app 只开了 4 个 scope `user.info.basic` / `user.info.profile` / `video.publish` / `video.upload`, 代码还请求 `user.info.stats` / `video.list`, 所以目前授权会报 "Missing required permissions". 未审计: 只能发 SELF_ONLY, 账号须为私密, 每 24 小时最多 5 个用户; 审计政策不接受管理自己或团队账号的工具, 此路不用于客户发帖, 2026-11-21 起入口加进 `HIDDEN_PROVIDERS` 隐藏. 无刷新工作流 (未设 `refreshCron`).
-  - **TikTok for Business** (`tiktok-business`, 客户发帖走这条, 2026-11-21 上线): 上游代码, 所有 `stellarbyte-v2.25.3*` 镜像都带; 唯一改动是 r12 补 `user.insights` scope (commit 72f372ec). 主体: TikTok Business Center "StellarByte" (7416952762119815184), 2026-11-20 认证为 STELLAR BYTE TECHNOLOGY CORP. (证书 BC1414030); business-api.tiktok.com 开发者类型 Agency, 已提交 Accounts API Access Application Form.
+  - **TikTok for Business** (`tiktok-business`, 客户发帖走这条, 2026-11-21 上线): 上游代码, 所有在用镜像 (含 r15) 都带; 本 fork 唯一改动是 r12 补 `user.insights` scope (commit 72f372ec). 主体: TikTok Business Center "StellarByte" (7416952762119815184), 2026-11-20 认证为 STELLAR BYTE TECHNOLOGY CORP. (证书 BC1414030); business-api.tiktok.com 开发者类型 Agency, 已提交 Accounts API Access Application Form.
   - Marketing API app `StellarByte Social Publisher` (App ID `7710534234384891912`) 2026-11-20 创建, **2026-11-21 Approved** (Online); scope 只选 "TikTok accounts" (获批为 All); Advertiser redirect URL 与 TikTok account holder redirect URL 都是 `https://app.stellarbyte.ca/integrations/social/tiktok-business/` (代码拼的是 `${FRONTEND_URL}/integrations/social/tiktok-business/`, 结尾斜杠必须有); logo 用 StellarByte 蓝色图标. 后台 (business-api.tiktok.com) 在 `harrison-personal` profile 里登录; 查看 Secret 要邮箱验证码 (发到开发者账号的 iCloud 隐藏邮箱); **不要点 Secret 旁的 Reset** (会作废生产 Secret). IP Allowlist 与 Request Signing 未开启, 开启前须先登记服务器出口 IP / 公钥, 否则发帖全部失败. API 频率档位 Basic.
-  - 代码: 变量 `TIKTOK_BUSINESS_CLIENT_ID` (= App ID) / `TIKTOK_BUSINESS_CLIENT_SECRET` (主源与 BW 备份见第 2 节, 2026-11-21 两边 `.env` 已配, 改前副本 `.env.pre-tiktok-business`; 上线核对: 公开 API `GET /public/v1/social/tiktok-business` 返回的授权链接 client_key 与回调正确, TikTok 接受该 client_key 并进入登录页); scope (r12 起 7 个) `user.info.basic,user.info.username,user.info.stats,user.insights,video.list,video.upload,video.publish` (`checkScopes` 校验, 缺任一授权失败); API base `https://business-api.tiktok.com/open_api/v1.3`.
+  - 代码: 变量 `TIKTOK_BUSINESS_CLIENT_ID` (= App ID) / `TIKTOK_BUSINESS_CLIENT_SECRET` (主源与 BW 备份见第 2 节, 2026-11-21 两边 `.env` 已配; 上线核对: 公开 API `GET /public/v1/social/tiktok-business` 返回的授权链接 client_key 与回调正确, TikTok 接受该 client_key 并进入登录页); scope (r12 起 7 个) `user.info.basic,user.info.username,user.info.stats,user.insights,video.list,video.upload,video.publish` (`checkScopes` 校验, 缺任一授权失败); API base `https://business-api.tiktok.com/open_api/v1.3`.
   - 限制: 每个号每分钟 6 条, 每天 15 条; access token 1 天, refresh token 1 年; 没有隐私参数 (只能公开发); 发帖由 TikTok 从 `media.stellarbyte.ca` 拉取视频 (Business API 只有拉取方式, 无文件直传). **媒体域名须在本 Business app 下做 URL 所有权验证, 2026-11-21 已完成**: 未验证时 TikTok 拉取报 40002 "Please review our URL ownership verification rules", 帖子标 ERROR (不可重试). developers.tiktok.com 旧 app 的 URL properties 已验证 `stellarbyte.ca`, 但对本 app 无效. 验证只能走 API (后台无入口): `POST /business/property/add/` 带 `app_id` + `secret` + `url_property_meta {property_type: 1 (域名), url: "stellarbyte.ca"}`, 返回 `tiktok-developers-site-verification=...` 签名, 加到 Cloudflare `stellarbyte.ca` 根域 TXT 记录 (备注写明本 app, 不可删, 与旧 app 的同名 TXT 并存), 再调 `POST /business/property/verify/` (同样参数) 得 `property_status: 1`; 根域验证覆盖 `media.stellarbyte.ca`. 换 app 或换媒体域名时重做.
-  - 已接入: 2026-11-21 首个频道 `matrix-tiktok` (FaithsHorizon, 测试用自有号), 在该号遗留 HubStudio 环境里由 app-ops 授权, 授权页列 6 项权限 (头像与显示名, 统计, 用户名, 公开视频, 发布, 上传草稿), 回调成功入库, access token 24 小时 (按需刷新). 2026-11-21 域名验证后经公开 API 发测试帖成功 (公开可见, item 7710780571156319502); 帖子刚发布时 releaseURL 只是主页地址, 视频 id 在打开帖子时由 `resolveReleaseId` 补全 (TikTok 延迟返回 post id, 属预期). 统计: `/business/get/` 的粉丝 / 关注 / 获赞 / 视频数字段要 `user.insights` (缺时报 40130), r12 已加入 scope; r12 之前授权的频道须在原环境由 app-ops 重新 Add Channel 一次 (同 internalId 复用原 integration id, 授权页只追加请求 "Read your TikTok user analytics"). `matrix-tiktok` 2026-11-21 已重连, 公开 API `GET /public/v1/analytics/:id` 返回粉丝 50 / 视频 8 等全部字段. 客户 Saylo (元象科技) 的两个新 TikTok 号待注册养号后同样授权.
+  - 已接入: `matrix-tiktok` (FaithsHorizon, 测试用自有号, 2026-11-21, r12 后已重连带 `user.insights`; 清单见 integrations.md 第 3 节). 帖子刚发布时 releaseURL 只是主页地址, 视频 id 由 `resolveReleaseId` 在打开帖子时补全 (TikTok 延迟返回 post id, 属预期). 统计字段要 `user.insights` (缺时报 40130): r12 之前授权的频道须在原环境由 app-ops 重新 Add Channel 一次 (同 internalId 复用原 integration id). 客户 Saylo (元象科技) 的两个新 TikTok 号待注册养号后同样授权.
   - 共用前端与 TikTok UX 指南的已知差距: 隐私选项写死 (不读 `creator_info`); `comment` 默认开; 音乐使用同意只在品牌开关打开时显示. `MIGRATE_PROVIDERS=tiktok:tiktok-business` 未设 (库里没有 `tiktok` 频道可迁).
 - **Threads** (2026-11-19 起): 独立 Meta app `StellarByte Threads` (App ID `1152802037157122`, 业务 Stellar BYTE Technology CORP., 用例 Access the Threads API), 变量 `THREADS_APP_ID` / `THREADS_APP_SECRET` 填的是 **Threads App ID `1861985238835189`** 与 Threads App Secret (不是 Meta App ID; BW `Meta App - StellarByte Threads` `289f46fb-…`). 回调 `https://app.stellarbyte.ca/integrations/social/threads` 已登记. 有刷新工作流 (`refreshCron`, 60 天长效 token).
   - App Review: 代码请求的 4 个权限 `threads_basic` / `threads_content_publish` / `threads_manage_replies` / `threads_manage_insights` **2026-11-20 已提交 (Review in progress, Meta 称多数 20 天内出结果)**. 提交材料: 录屏 (测试账号 `test@stellarbyte.ca`, `~/STELLAR_OUTPUT/_tmp/threads-app-review-2026-11-20/`), Reviewer instructions, Data handling 处理方 Contabo GmbH / Cloudflare, Inc.; 4 个权限的测试调用只在 30 天内有效, 被拒重提须重跑. 过审后: Meta 后台 Publish app, 更新本条与 integrations.md 第 3 节.
@@ -284,9 +284,9 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 
 事实 (代码已核实, v2.26.0 + r15):
 
-- `Integration` 表的 `token` / `refreshToken` 明文存储 (`integration.repository.ts`, 上游设计, 未改), 不用 `JWT_SECRET` 加密: 轮换 `JWT_SECRET` 只让用户会话掉线, 不影响任何频道 token. 因此本地 dump 等同全部频道授权 (第 6.1 节).
+- `Integration` 表的 `token` / `refreshToken` 当前明文存储: r15 (上游 v2.26.0) 起支持可选落库加密 (`ENCRYPTION_PROVIDER=local` + `ENCRYPTION_KEY`, `encryption.service.ts`; 存量由 `encryptTokensWorkflow` 加密), 生产未开启, 开启前先读第 5 节 r15 → r14 的回滚注意. 与 `JWT_SECRET` 无关: 轮换它只让用户会话掉线 (本地 dump 处理见第 6.1 节).
 - Pinterest: access token 30 天; continuous refresh token 60 天, 每次刷新轮换 (r4 起保存新 refresh token, spec L1').
-- `refreshTokenWorkflow` (workflow id `refresh_<integrationId>`) 只在 OAuth 连接时启动, 之后没有任何补启机制. 刷新失败**一次**即把 integration 标 `refreshNeeded` 并退出工作流 (`refresh.integration.service.ts` 的 `refreshProcess`), 只能在 UI 里 Reconnect. 发帖时若 token 已过期会顺手刷新一次.
+- `refreshTokenWorkflow` (workflow id `refresh_<integrationId>`) 只在 OAuth 连接时启动, 之后没有任何补启机制. 刷新失败**一次**即把 integration 标 `refreshNeeded` 并退出工作流 (`refresh.integration.service.ts` 的 `refreshProcess`; r15 起若是并发刷新, 先最多等 3 次读回另一路已存的新 token, 仍失败才标记), 只能在 UI 里 Reconnect. 发帖时若 token 已过期会顺手刷新一次.
 - 设了 `refreshCron` 的只有 Pinterest (r4) / Threads / Instagram standalone; 其余 (LinkedIn / YouTube / TikTok / TikTok Business 等) 无刷新工作流, 只在发帖时用 refresh token 按需刷新; Facebook Page token 长期有效, 但 90 天数据访问期内无活动需重连 (spec 7.1 D24 行).
 - **没有 refresh token 的频道不会自动续期**: LinkedIn 个人号 `personal-linkedin` (integration `cmwdbbqqo…`) 没有 refresh token, access token 2027-01-11 到期, 必须在那之前用 Harrison 本人的 LinkedIn 在 UI 手动 Reconnect; `stellarbyte-channel-health` 从约 2026-12-28 (到期前 14 天) 起告警 (第 7 节).
 - 删除组织会把该组织 integration 的 token 哈希掉, 不可逆. r9 起删除账号前先对支持作废的 provider (YouTube) 作废授权.
@@ -303,16 +303,15 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 | 时限 | 项 | 状态 |
 |---|---|---|
 | 2027-01-11 前 (告警约 2026-12-28 起) | LinkedIn 个人号 `personal-linkedin` 手动 Reconnect (没有 refresh token, 见上) | 待做 |
-| 首个 Pinterest 号授权当天 | 核对 Temporal 中存在 `refresh_<integrationId>` 工作流 (方法见 `platforms/pinterest/authorization-checklist.md` 第 1 节第 9 步; Threads 2026-11-20 已核对 `refresh_cmwoaxm0p0001p681lqslxofp` Running, 机制可用) | 待授权 |
-| 首个 Pinterest 号首次刷新前 (授权后约 30 天) | 刷新补丁上线 (r13 未包含): 刷新失败退避重试 (不再一次失败即 `refreshNeeded`); 对设了 `refreshCron` 的 provider 的 integration 补启刷新工作流 (`WorkflowIdConflictPolicy` = USE_EXISTING, 已在跑的不重复) | 待开发 |
+| 2026-12-22 前 (Pinterest easternblessing 首次刷新, access token 到期日) | 刷新补丁上线 (r15 仍未包含; 工作流以 `TERMINATE_EXISTING` 启动, 无补启): 刷新失败退避重试 (不再一次失败即 `refreshNeeded`); 对设了 `refreshCron` 的 provider 的 integration 补启刷新工作流 (`WorkflowIdConflictPolicy` = USE_EXISTING, 已在跑的不重复) | 待开发 |
 | 同上 | watchdog: `refresh_<id>` 工作流数 < 设了 `refreshCron` 的 integration 数时告警. (`refreshNeeded` 与无 refresh token 的 token 临近到期已由 `stellarbyte-channel-health` 覆盖, 2026-11-21, 第 7 节) | 待开发 |
-| 首次刷新后 (授权后约 30 天) | 核对该 integration 的 refresh token 已更换 (只比对哈希, 不打印值) | 待授权 |
+| 2026-12-22 后 | 核对 easternblessing (`cmwsb6t6c0002pc7ptlkyuf6n`) 的 refresh token 已更换 (只比对哈希, 不打印值) | 待核对 |
 
 ## 13. 故障排查
 
 | 现象 | 原因 / 处理 |
 |---|---|
-| `docker compose pull` 报 ghcr `connection reset by peer` (IPv6) | 网络抖动, 旧容器不受影响; 重试 (`for i in 1 2 3; do docker compose pull app && break; sleep 30; done`); 反复被重置时临时在 `/etc/hosts` 把 ghcr.io 与 pkg-containers.githubusercontent.com 映射到 IPv4, 拉完立即还原 (r9 / r11 / r12 / r13 用过). 镜像约 7GB, 首拉约 13 分钟 |
+| `docker compose pull` 报 ghcr `connection reset by peer` (IPv6) | 网络抖动, 旧容器不受影响; 重试 (`for i in 1 2 3; do docker compose pull app && break; sleep 30; done`); 反复被重置时临时在 `/etc/hosts` 把 ghcr.io 与 pkg-containers.githubusercontent.com 映射到 IPv4, 拉完立即还原. 镜像约 7GB, 首拉约 13 分钟 |
 | app 反复重启, 日志 `ERR_INVALID_URL` (start.mcp.ts) | `NEXT_PUBLIC_BACKEND_URL` 必须是绝对地址 `https://app.stellarbyte.ca/api`, 不能是 `/api` |
 | app 启动卡在 prisma | 启动脚本每次跑 `pnpm dlx prisma@6.5.0 db push`, 需要容器能访问 registry.npmjs.org; 外网或 npm 故障时启动失败, 恢复后 `docker compose restart app` |
 | 磁盘不足 | `df -h /`; `docker system df`; 只删确认无用的旧镜像 (`docker image rm <旧 tag>`), 保留当前 tag 与第 3 节写明的回滚目标 tag. 不要 `docker volume prune` (同机有 Stalwart / Listmonk 的卷); 磁盘 > 85% 时 `host-resource-check` 会告警 |
@@ -325,6 +324,6 @@ docker exec -it stellarbyte-postgres psql -U postgres -d stellarbyte \
 | Pinterest 频道提示需重连 (`refreshNeeded`) | 刷新失败一次即退出工作流, 不会自愈 (第 12.3 节); 在该号自己的 HubStudio 环境用 app-ops 登录后 Reconnect, 之后核对 `refresh_<id>` 工作流重新出现 |
 | 媒体 URL 404 / 双斜杠 | `CLOUDFLARE_BUCKET_URL` 末尾多了 `/` |
 | Cloudflare 526 | 只有 `app.stellarbyte.ca` 526: Let's Encrypt 证书过期或续期后 nginx 未 reload, 查 `certbot certificates` 与 `systemctl list-timers certbot.timer`, 手动 `certbot renew` 后 `systemctl reload nginx`. 其他子域也 526: zone 级 SSL 被改成 strict, 改回 Full (第 9 节) |
-| r13 上线后用户提示要重新登录 / 改密码后其他设备掉线 | 预期行为: r13 作废了此前全部会话, 且改密码会结束旧会话 (第 12.1 节) |
+| 用户被要求重新登录 / 改密码后其他设备掉线 | 预期行为: 会话 30 天过期, 改密码 / 重置密码会结束旧会话 (第 12.1 节) |
 | 登录返回 429 | 第 9 节登录限速 (每 IP 10 次/分钟); 等 1 分钟. 多人同一出口 IP 频繁误报时再调 `rate` / `burst` |
 | 内存紧张 / OOM | `docker stats`; app 上限 2g 由 cgroup 硬限, 先被杀的是 app/temporal (oom_score_adj 300), Stalwart (-500) 受保护 |

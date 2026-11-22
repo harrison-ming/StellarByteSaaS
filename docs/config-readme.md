@@ -8,13 +8,13 @@ status: active
 # StellarByteSaaS
 
 > 对应项目: `/Users/ming/Documents/host/StellarByteSaaS/`
-> 最后更新: 2026-11-21
+> 最后更新: 2026-11-22
 
 ## 概述
 
-StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) 二次开发: 分支 `stellarbyte` = 上游 `v2.25.3` + StellarByte 品牌与少量补丁 (见 [redeploy-spec.md](redeploy-spec.md) 第 3 节). 2026-11-03 重新上线.
+StellarByte 是社交媒体排程发布平台, 基于开源 Postiz (AGPL-3.0) 二次开发: 分支 `stellarbyte` = 上游 `v2.26.0` + StellarByte 品牌与少量补丁 (见 [redeploy-spec.md](redeploy-spec.md) 第 3 节). 2026-11-03 重新上线; 当前线上 tag 见 runbook 第 3 节.
 
-- **访问地址**: https://app.stellarbyte.ca (2026-11-21 起关闭注册, 客户经团队邀请加入, spec D27; 邮箱注册须激活, 也可 Google 登录; 重新开放见 runbook 12.1)
+- **访问地址**: https://app.stellarbyte.ca (2026-11-21 起关闭注册, 客户经团队邀请加入, spec D27; 受邀者可邮箱注册 (须激活) 或 Google 登录; 重新开放见 runbook 12.1)
 - **开源声明**: AGPL-3.0 源码地址公示在 https://stellarbyte.ca/terms/ 第 16 节 (app 界面不放署名/源码链接, spec D17 / D18)
 - **部署位置**: Contabo VPS 161.97.184.77, `/opt/stellarpostiz/`
 - **运维 runbook**: [DEPLOYMENT.md](DEPLOYMENT.md) (部署 / 升级 / 回滚 / 备份恢复 / 排障)
@@ -32,7 +32,7 @@ Cloudflare (proxied, app 主机 SSL Full (strict)) -> Contabo nginx (Let's Encry
     └── stellarbyte-temporal  Temporal 1.28 (SQL visibility)
 
 媒体: R2 stellar-postiz -> https://media.stellarbyte.ca
-备份: 每日 pg_dump -> 本地 (明文, root only) + age 加密后上传 R2 stellarbyte-backups; 最近离机 (R2 密文) 恢复演练 2026-11-21 PASS (runbook 第 6 节)
+备份: 每日 pg_dump -> 本地 (root only) + age 加密后上传 R2 stellarbyte-backups (演练记录见 runbook 第 6 节)
 告警: Windmill 外部存活 + 备份 watchdog + 频道健康 + 主机资源 -> Discord #errors; 新注册 -> #stellarbyte-signups (宿主 timer)
 登录: 邮箱 + Google (独立 client, GCP stellarbyte-scheduler-login, spec D19; 详见 runbook 12.1)
 频道 client: 各平台 app / 环境变量 / 回调见 runbook 12.2, BW 指针见 credentials.md

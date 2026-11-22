@@ -66,7 +66,7 @@ jobs:
           - [ ] 从 \`${LATEST}\` 开分支 \`sync/${LATEST}\`, 按顺序 cherry-pick L1 / L1' 补丁; 已被上游修复的 L1' 丢弃
           - [ ] \`node scripts/brand/apply-brand.mjs --check\`: 全部规则命中数 > 0, 残留扫描通过
           - [ ] CI 构建通过, 本机 compose 冒烟 (spec 8.2) 通过
-          - [ ] 合入 \`stellarbyte\`, 更新 \`UPSTREAM_BASE\`, 打 tag \`stellarbyte-${LATEST}\`, CI 推镜像
+          - [ ] 合入 \`stellarbyte\`, 更新 \`UPSTREAM_BASE\`, 打 tag \`stellarbyte-${LATEST}-rN\` (rN 全局递增), CI 推镜像
           - [ ] 升级前手动备份, Contabo 按 docs/DEPLOYMENT.md 第 3 节更新镜像 tag 并验收
           - [ ] 回滚预案: 上一版镜像 tag + 升级前 pg_dump (spec 4 第 6 步)
           BODY
